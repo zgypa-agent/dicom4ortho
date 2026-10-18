@@ -7,8 +7,11 @@ Create orthodontic visible-light DICOM instances from photographs and clinical m
 The library implements orthodontic profile mapping and validation. DICOMKit owns
 the DICOM dataset writer, transfer-syntax definitions, and image codecs. There is
 no networking, camera framework, UI framework, Python runtime, or live terminology
-download in this target. The implementation is still a partial port; consult the
-repository's `apple/README.md` and `docs/SWIFT_PORT.md` for tested coverage and limitations.
+download in this target. This guide owns Swift API usage; see the repository's
+[development record](https://github.com/open-ortho/dicom4ortho/blob/develop/apple/Documentation/Development.md)
+for qualification results and outstanding work, and the
+[project README](https://github.com/open-ortho/dicom4ortho#introduction)
+for shared standards and clinical background. The port is incomplete.
 
 ### Create an uncompressed photograph
 
@@ -24,6 +27,7 @@ metadata.patientGivenName = "Alex"
 
 let bytes = try materializer.materializeRGB8(
     pixels: Data([255, 0, 0]), width: 1, height: 1, metadata: metadata)
+try bytes.write(to: URL(fileURLWithPath: "example.dcm"))
 ```
 
 The result is a complete DICOM Part 10 file. Writing it to a file is optional;
@@ -48,6 +52,9 @@ Preserving an existing JPEG is a different operation from encoding pixels. Use
 ``OrthodonticPhotograph/materializeJPEG(imageData:metadata:)`` for the currently
 supported baseline color JPEG subset. It preserves the compressed data rather
 than decoding and recompressing it. EXIF fallback is not implemented yet.
+The accepted JPEG input is an 8-bit, three-component SOF0 stream with component
+identifiers 1/2/3, interpreted as YCbCr. Progressive or grayscale JPEG, MPO, and JP2
+are not supported by this entry point. Supply acquisition metadata explicitly.
 
 ### Preserve identity and clinical time
 
@@ -55,6 +62,8 @@ than decoding and recompressing it. EXIF fallback is not implemented yet.
 For multiple photographs in a study/series, supply shared study/series UIDs while
 keeping distinct SOP Instance UIDs. The final SOP UID is retained during creation,
 including when an internal codec uses an uncompressed intermediate representation.
+Generated UIDs use dicom4ortho's registered roots, with DICOMKit providing suffixes.
+File Meta Information identifies the DICOMKit serializer.
 
 ``ClinicalDate`` is a Gregorian calendar date, not a timestamp. ``TreatmentProgress``
 combines one with a ``TreatmentEvent``; materialization calculates the offset in days
@@ -62,15 +71,24 @@ from the acquisition calendar date in `acquisitionTimeZone`. Missing acquisition
 dates and events after acquisition are rejected. Zero-day offsets remain valid.
 Editing timestamps and content creation times cannot substitute for acquisition.
 
+`patientBirthDate` takes a DICOM DA string (`YYYYMMDD`) or an empty value.
+IV28, IV30, and EV40 require a `directionKeyword`, for example `projection_right`.
+IV29 omits an unknown direction. IV28/IV30 emit an empty Type 2C Patient Orientation
+where Python currently omits it; this is a conformance correction, not an invented
+orientation. Complete metadata validation and pixel layouts beyond RGB8 remain pending.
+
 ### Keep terminology synchronized without runtime coupling
 
-One maintenance command, `make update_codes`, resolves terminology once and renders
-the Python module and Swift resource together. ``Terminology`` decodes the committed
-SwiftPM bundle offline. Each distributed package contains its own generated data,
-but the clinical definitions are maintained only in the shared generator/upstream
-profile sources. Neither implementation loads the other's runtime code.
+``Terminology`` decodes the committed SwiftPM resource bundle offline. Source
+ownership, provenance, and the single cross-port generation workflow are documented
+in the [shared terminology instructions](https://github.com/open-ortho/dicom4ortho#shared-terminology),
+not maintained separately in this Swift guide.
 
 ## Topics
+
+### Implementation rationale
+
+- <doc:Design>
 
 ### Materialization
 

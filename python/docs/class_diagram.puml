@@ -1,0 +1,33 @@
+@startuml
+title Python implementation (selected public operations)
+class DicomBase {
+    +save(filename)
+}
+class PhotographBase {
+    +set_image()
+}
+class OrthodonticPhotograph {
+    +__init__(**metadata)
+    +set_treatment_progress_from_date(event_type, event_date, acquisition_date)
+}
+class OrthodonticController {
+    +convert_image_to_dicom4orthograph(metadata)
+    +convert_image_to_dicom4orthograph_and_save(metadata)
+    +convert_images_to_orthodontic_series(images, metadata)
+}
+class OrthodonticSeries {
+    +add(photo)
+    +save(filename_prefix)
+}
+class OrthodonticStudy {
+    +add(serie)
+    +save()
+}
+PhotographBase --|> DicomBase
+OrthodonticPhotograph --|> PhotographBase
+OrthodonticController ..> OrthodonticPhotograph : constructs
+OrthodonticController ..> OrthodonticSeries : constructs
+OrthodonticStudy o-- OrthodonticSeries
+OrthodonticSeries o-- OrthodonticPhotograph
+DicomBase o-- Dataset : pydicom
+@enduml

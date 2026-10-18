@@ -1,4 +1,9 @@
 // swift-tools-version: 6.4
+// This language-specific manifest intentionally stays at the repository root:
+// SwiftPM resolves a Git-URL dependency from its root Package.swift and has no
+// subdirectory selector. Moving it into apple/ would support local --package-path
+// builds but break direct installation from this repository URL. Sources, tests,
+// and Swift documentation remain under apple/. See README.md#repository-layout.
 import PackageDescription
 
 let package = Package(

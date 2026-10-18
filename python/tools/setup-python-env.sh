@@ -39,6 +39,6 @@ fi
 
 # Use the interpreter directly, not a possibly stale pip console-script shebang.
 # Reinstalling the editable package also refreshes its relocated source mapping.
-.venv/bin/python -m pip install --quiet -e ".[dev]" || return 1
+.venv/bin/python -m pip install --quiet -e "./python[dev]" || return 1
 _dicom4ortho_activate_venv || return 1
 unset -f _dicom4ortho_activate_venv

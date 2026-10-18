@@ -9,20 +9,22 @@ Get more context from [context](./docs/context/cp1570_ft_add_dental_acquisition_
 ## 1) Repository Snapshot
 
 - Language: Python (`>=3.10`).
-- Packaging/build backend: `setuptools` via `pyproject.toml`.
+- Packaging/build backend: `setuptools` via `python/pyproject.toml`.
 - Test framework in practice: `unittest` (despite README examples mentioning `pytest`).
 - Primary linting tool: `pylint`.
 - DICOM dependencies: `pydicom`, `pynetdicom`, `pillow`, `requests`.
 - Python implementation and tests: `python/dicom4ortho/` and `python/test/`.
 - Some tests require Docker + Orthanc (`python/test/docker-compose.yml`).
-- This is a multi-language-ready layout, not a shared executable core. Keep
-  root packaging/Make entry points compatible; see `docs/REPOSITORY_LAYOUT.md`.
+- This is a multi-language layout, not a shared executable core. Python packaging
+  lives in `python/`; root Make entry points delegate to it. See `README.md#repository-layout`
+  and `python/README.md`.
 
 ## 2) Rules Files Discovered
 
 - Cursor rules: none found (`.cursor/rules/` and `.cursorrules` absent).
 - Copilot rules: none found (`.github/copilot-instructions.md` absent).
-- Additional coding context exists in `docs/context/general_coding.md` and should be treated as guidance.
+- Shared contributor guidance is in `README.md#contributing`. Language-specific
+  guides live under `python/` and `apple/`; Swift API usage lives in its DocC catalog.
 
 ## 3) Environment Setup
 
@@ -32,7 +34,7 @@ Recommended local setup:
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-pip install -e ".[dev]"
+pip install -e "./python[dev]"
 ```
 
 Alternative install (non-editable):
@@ -47,13 +49,13 @@ pip install dicom4ortho[dev]
 
 - Lint:
   - `make lint`
-  - Equivalent: `pylint --errors-only python/dicom4ortho`
+  - Equivalent: `pylint --rcfile=python/.pylintrc --errors-only python/dicom4ortho`
 - Test suite:
   - `PYTHONPATH=python python -m unittest discover -s python/test -t python`
   - Run commands from the repository root after editable installation.
   - `make test` (starts/stops Docker around tests)
 - Build package:
-  - `python -m build`
+  - `python -m build python --outdir dist`
   - `make build` (runs lint + test + build, using the committed terminology lock)
 
 ### Run a single test (important)
@@ -107,7 +109,7 @@ docker compose -f ./python/test/docker-compose.yml down
 - `make check_codes` performs the same fetch and validation in memory and fails
   when its output differs from the committed lock. It is suitable for manual or
   scheduled terminology drift detection; normal builds and runtime stay offline.
-- Safer build-only command: `python -m build`.
+- Safer build-only command: `python -m build python --outdir dist`.
 
 ## 6) Code Style and Conventions
 
@@ -115,7 +117,7 @@ docker compose -f ./python/test/docker-compose.yml down
 
 - Follow PEP 8 baseline with project-specific limits.
 - Use 4-space indentation.
-- Max line length: 100 (from `.pylintrc`).
+- Max line length: 100 (from `python/.pylintrc`).
 - Keep modules under roughly 1000 lines when feasible (`pylintrc` target).
 - Prefer readable, explicit code over compact/clever forms.
 
@@ -129,7 +131,7 @@ docker compose -f ./python/test/docker-compose.yml down
 
 ### Naming
 
-Derived from `.pylintrc`:
+Derived from `python/.pylintrc`:
 
 - Functions/methods/variables/arguments: `snake_case`.
 - Classes: `PascalCase`.
@@ -150,7 +152,7 @@ Derived from `.pylintrc`:
 - Log context-rich messages for operational failures (I/O, network, parsing).
 - Catch narrowly (specific exceptions), not broad `except` unless unavoidable.
 - Do not silently swallow failures; if intentionally ignored, log at least a debug/warning message.
-- Follow `docs/context/general_coding.md`: avoid returning null-like values unless there is a clear contract reason.
+- Avoid returning null-like values unless there is a clear contract reason.
 
 ### Logging
 
@@ -189,7 +191,7 @@ After coding:
 2. Run module-level tests.
 3. Run full `unittest` suite if change is broad.
 4. Run `make lint` (or equivalent pylint command).
-5. Build with `python -m build` when packaging changes are involved.
+5. Build with `python -m build python --outdir dist` when packaging changes are involved.
 
 ## 9) Useful Paths
 
@@ -197,6 +199,8 @@ After coding:
 - DICOM transport modules: `python/dicom4ortho/dicom/`
 - Tests: `python/test/`
 - Docker test services: `python/test/docker-compose.yml`
-- Lint config: `.pylintrc`
-- Build config: `pyproject.toml`
-- Supporting coding guidance: `docs/context/general_coding.md`
+- Lint config: `python/.pylintrc`
+- Build config: `python/pyproject.toml`
+- Shared scope, layout, and contributor guidance: `README.md`
+- Python implementation guides: `python/README.md` and `python/docs/`
+- Swift API guide: `apple/Sources/DICOM4Ortho/DICOM4Ortho.docc/`

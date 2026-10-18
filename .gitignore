@@ -1,6 +1,7 @@
 .vscode/*
 resources/dicom3tools_*
 dist/*
+python/dist/
 build
 *.pyc
 *.egg-info

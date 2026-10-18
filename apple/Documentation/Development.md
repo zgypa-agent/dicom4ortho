@@ -1,8 +1,8 @@
 # Swift port development
 
 Implementation tracking: [#82](https://github.com/open-ortho/dicom4ortho/issues/82).
-See [repository layout and dependency selection](REPOSITORY_LAYOUT.md#additional-implementations)
-for the agreed scope. DICOMKit is integrated; qualification is incremental and
+See [the shared scope](../../README.md) and [Swift guide](../README.md)
+for the implementation boundaries. DICOMKit is integrated; qualification is incremental and
 the port is not feature-complete.
 
 ## Development environment investigation (2026-10-18)
@@ -63,7 +63,7 @@ These maintenance commands fetch upstream terminology. Normal builds, runtime, a
 unit tests remain offline. The JSON includes all codes, photograph types, views,
 source provenance, and the corresponding Python artifact's SHA-256. The former
 separate export command was removed; Swift data is no longer derived by importing
-the generated Python module. See [the pipeline](TERMINOLOGY.md).
+the generated Python module. See [the pipeline](../../README.md#shared-terminology).
 
 The current materializer supports RGB8, explicit/implicit little-endian output,
 JPEG Baseline, JPEG Lossless SV1, JPEG-LS Lossless, JPEG 2000 lossless/lossy,
@@ -159,7 +159,7 @@ Swift sources now place the main public types in same-named files and use
 `Type+Feature.swift` for extensions. Public APIs document input formats, defaults,
 error behavior, and clinical intent. `PhotographEncoding` is policy, not a duplicate
 registry: its typed transfer-syntax mapping uses DICOMKit definitions. Independent
-test oracles keep numeric UIDs intentionally. See `apple/README.md` for the detailed
+test oracles keep numeric UIDs intentionally. See [the design article](../Sources/DICOM4Ortho/DICOM4Ortho.docc/Design.md) for the detailed
 file map and rationale.
 
 After this refactor, 11 macOS Swift tests and both iOS library cross-builds passed.

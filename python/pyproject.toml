@@ -57,12 +57,12 @@ d4o_generate = "dicom4ortho.__main__:generate_uid"
 "dicom4ortho" = ["resources/views.csv"]
 
 [tool.setuptools]
-package-dir = {"" = "python"}
+package-dir = {"" = "."}
 
 [tool.setuptools.packages.find]
-where = ["python"]
+where = ["."]
 include = ["dicom4ortho*"]
 
 [tool.pytest.ini_options]
-testpaths = ["python/test"]
-pythonpath = ["python", "."]
+testpaths = ["test"]
+pythonpath = [".", ".."]

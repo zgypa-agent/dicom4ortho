@@ -34,7 +34,7 @@
       {
         devShells.default = pkgs.mkShell {
           packages = [
-            # Python interpreter — deps are managed by pip/pyproject.toml inside a venv
+            # Python interpreter — deps use python/pyproject.toml inside a root venv
             pkgs.python310
 
             # DICOM validation tool (extracted from Debian package; Linux x86_64 only)
@@ -60,7 +60,7 @@
             export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:''${LD_LIBRARY_PATH:-}"
 
             # Refuse stale activation paths and stop on dependency-install errors.
-            source tools/setup-python-env.sh || exit 1
+            source python/tools/setup-python-env.sh || exit 1
 
             echo ""
             echo "dicom4ortho dev shell ready"

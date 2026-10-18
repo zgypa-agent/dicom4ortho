@@ -6,9 +6,6 @@ on:
       - master
     paths:
       - 'python/**'
-      - 'pyproject.toml'
-      - 'MANIFEST.in'
-      - 'README.md'
       - 'LICENSE'
       - '.github/workflows/deploy-to-pypi.yml'
 
@@ -31,7 +28,7 @@ jobs:
 
     - name: Build and check package
       run: |
-        python -m build
+        python -m build python --outdir dist
         twine check dist/*
 
     - name: Upload to PyPI

@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 
-SETUP_SCRIPT = Path(__file__).resolve().parents[2] / 'tools' / 'setup-python-env.sh'
+SETUP_SCRIPT = Path(__file__).resolve().parents[1] / 'tools' / 'setup-python-env.sh'
 
 
 class TestDevelopmentEnvironment(unittest.TestCase):
@@ -62,7 +62,7 @@ class TestDevelopmentEnvironment(unittest.TestCase):
         result = self._run_setup()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.log.read_text(encoding='utf-8'),
-                         '-m pip install --quiet -e .[dev]\n')
+                          '-m pip install --quiet -e ./python[dev]\n')
         self.assertIn(f'ACTIVE={self.bin_directory.parent}', result.stdout)
 
     def test_dependency_install_failure_stops_before_activation(self):

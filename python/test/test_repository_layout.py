@@ -2,9 +2,11 @@
 
 import configparser
 import csv
+import re
 import subprocess
 import unittest
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
 
 PYTHON_ROOT = Path(__file__).resolve().parent.parent
@@ -44,7 +46,8 @@ class TestRepositoryLayout(unittest.TestCase):
             capture_output=True,
             text=True,
         )
-        self.assertIn('/selected/venv/bin/python -m pylint --errors-only', result.stdout)
+        self.assertIn('/selected/venv/bin/python -m pylint --rcfile=python/.pylintrc --errors-only',
+                      result.stdout)
         self.assertNotIn('which pylint', result.stdout)
 
     def test_make_test_prioritizes_the_local_test_package(self):
@@ -59,7 +62,7 @@ class TestRepositoryLayout(unittest.TestCase):
         expected_commands = {
             'lint': '--errors-only python/dicom4ortho',
             'test': 'python3 -m unittest discover -s python/test -t python',
-            'build': 'python3 -m build',
+            'build': 'python3 -m build python --outdir',
             'fetch_resources': 'python/dicom4ortho/resources/views.csv',
             'update_codes': 'python3 tools/generate_codes.py',
             'check_codes': 'python3 tools/generate_codes.py --check',
@@ -80,14 +83,14 @@ class TestRepositoryLayout(unittest.TestCase):
 
     def test_version_bump_configuration_tracks_existing_files(self):
         configuration = configparser.ConfigParser(interpolation=None)
-        configuration.read(REPOSITORY_ROOT / '.bumpversion.cfg')
+        configuration.read(PYTHON_ROOT / '.bumpversion.cfg')
         files = [
             section.removeprefix('bumpversion:file:')
             for section in configuration.sections()
             if section.startswith('bumpversion:file:')
         ]
         self.assertEqual(
-            files, ['python/dicom4ortho/config.py', 'pyproject.toml', 'README.md'])
+            files, ['python/dicom4ortho/config.py', 'python/pyproject.toml', 'python/README.md'])
         for filename in files:
             self.assertTrue((REPOSITORY_ROOT / filename).is_file(), filename)
 
@@ -101,11 +104,48 @@ class TestRepositoryLayout(unittest.TestCase):
                 self.assertTrue(
                     (example_directory / row['input_image_filename']).is_file())
 
-    def test_root_packaging_is_the_single_metadata_entry_point(self):
-        self.assertTrue((REPOSITORY_ROOT / 'pyproject.toml').is_file())
-        self.assertFalse((PYTHON_ROOT / 'pyproject.toml').exists())
+    def test_python_packaging_lives_in_the_language_directory(self):
+        self.assertFalse((REPOSITORY_ROOT / 'pyproject.toml').exists())
+        for filename in ('pyproject.toml', 'MANIFEST.in', '.pylintrc', '.bumpversion.cfg'):
+            self.assertTrue((PYTHON_ROOT / filename).is_file(), filename)
+            self.assertFalse((REPOSITORY_ROOT / filename).exists(), filename)
         self.assertTrue((REPOSITORY_ROOT / 'LICENSE').is_file())
         self.assertTrue((REPOSITORY_ROOT / 'tools' / 'generate_codes.py').is_file())
+
+    def test_python_license_matches_the_project_license(self):
+        self.assertEqual((PYTHON_ROOT / 'LICENSE').read_bytes(),
+                         (REPOSITORY_ROOT / 'LICENSE').read_bytes())
+
+    def test_swift_manifest_stays_at_root_for_git_url_dependencies(self):
+        manifest = REPOSITORY_ROOT / 'Package.swift'
+        self.assertTrue(manifest.is_file())
+        self.assertFalse((REPOSITORY_ROOT / 'apple' / 'Package.swift').exists())
+        self.assertIn('subdirectory selector', manifest.read_text(encoding='utf-8'))
+
+    def test_python_package_description_uses_the_python_readme(self):
+        # Keep this compatible with Python 3.10, which has no stdlib tomllib.
+        project = (PYTHON_ROOT / 'pyproject.toml').read_text(encoding='utf-8')
+        self.assertIn('readme = "README.md"', project)
+
+    def test_documentation_relative_links_resolve(self):
+        documents = [REPOSITORY_ROOT / 'README.md', PYTHON_ROOT / 'README.md']
+        documents += list((PYTHON_ROOT / 'docs').glob('*.md'))
+        # The Python sdist carries Python docs, not the Swift documentation tree.
+        if (REPOSITORY_ROOT / 'Package.swift').exists():
+            documents += list((REPOSITORY_ROOT / 'apple').rglob('*.md'))
+        for document in documents:
+            text = document.read_text(encoding='utf-8')
+            for link in re.findall(r'\[[^\]]*\]\(([^\s)]+)\)', text):
+                url = urlsplit(link)
+                if url.scheme or url.netloc or not url.path:
+                    continue
+                target = (document.parent / unquote(url.path)).resolve()
+                # Cross-port links are usable in the checkout, not the Python sdist.
+                if not (REPOSITORY_ROOT / 'Package.swift').exists() and \
+                        target.is_relative_to(REPOSITORY_ROOT / 'apple'):
+                    continue
+                with self.subTest(document=document, link=link):
+                    self.assertTrue(target.exists(), f'Missing documentation target: {target}')
 
     def test_fixed_dicom_fixture_is_preserved(self):
         self.assertTrue((PYTHON_ROOT / 'test' / 'resources' / 'test.dcm').is_file())

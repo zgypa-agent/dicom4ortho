@@ -1,0 +1,21 @@
+@startuml
+title Current Swift implementation (not the Python object lifecycle)
+class OrthodonticPhotograph <<struct>> {
+    +init() throws
+    +materializeRGB8(pixels, width, height, metadata, encoding): Data
+    +materializeJPEG(imageData, metadata): Data
+}
+class PhotographMetadata <<struct>>
+class PhotographEncoding <<enum>>
+class Terminology <<struct>>
+class ClinicalDate <<struct>>
+class TreatmentEvent <<enum>>
+class TreatmentProgress <<struct>>
+OrthodonticPhotograph *-- Terminology
+OrthodonticPhotograph ..> PhotographMetadata
+OrthodonticPhotograph ..> PhotographEncoding
+OrthodonticPhotograph ..> DICOMKit : serialization / codecs
+PhotographMetadata o-- TreatmentProgress
+TreatmentProgress *-- ClinicalDate
+TreatmentProgress *-- TreatmentEvent
+@enduml

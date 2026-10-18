@@ -1,0 +1,12 @@
+include LICENSE README.md .pylintrc
+recursive-include docs *.md *.puml
+recursive-include test *.py *.yml *.json
+recursive-include test/resources *.rdf *.JPG *.j2k
+include test/resources/test.dcm
+recursive-include examples *.py *.md *.csv *.png
+# These exercise repository-wide tools/artifacts, not the standalone Python package.
+# Run them from the full Git checkout; do not copy shared tooling into the sdist.
+exclude test/test_development_environment.py
+exclude test/test_generated_codes.py
+exclude test/test_repository_layout.py
+exclude test/test_terminology_bundles.py
