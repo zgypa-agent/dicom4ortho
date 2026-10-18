@@ -151,3 +151,6 @@ class TestSwiftDevelopmentEnvironment(unittest.TestCase):
             self.assertIn('nix develop .#python', result.stdout)
             self.assertIn('nix develop .#swift', result.stdout)
             self.assertIn('Xcode', result.stdout)
+            self.assertIn('2026-10-18', result.stdout)
+            self.assertIn('nixos-unstable', result.stdout)
+            self.assertIn('not a claim about all third-party flakes', result.stdout)

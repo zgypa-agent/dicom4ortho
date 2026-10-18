@@ -8,6 +8,9 @@ cat <<'HELP'
 
   Run these commands from the repository root. Choose Python for the shared
   terminology generator; choose Swift for library development without Python setup.
+  Swift toolchain check (2026-10-18): our pinned nixpkgs provides Swift 5.8;
+  nixos-unstable's default swift package provides 6.2.4. This package needs 6.4+.
+  These are dated nixpkgs observations, not a claim about all third-party flakes.
   Swift: set SWIFT_TOOLCHAIN_BIN to the directory containing your Swift 6.4+ binary,
   or put it on PATH. Linux dependency compatibility is not yet verified.
   iOS SDKs and simulator testing require a compatible Xcode on macOS.

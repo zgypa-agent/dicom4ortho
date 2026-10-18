@@ -40,7 +40,8 @@ terminology refresh, follow the [shared maintenance instructions](../README.md#s
 ### Nix environment
 
 `nix develop .#swift` provides support tools without invoking Python setup. Nix's
-pinned Swift is 5.8 (current nixpkgs checked during setup provides 6.2.4); neither
+pinned Swift is 5.8; as checked on **2026-10-18**, `nixos-unstable`'s default `swift`
+package is 6.2.4 (revision `fe13242281a67641c0102cdb1087f0ebe586c7df`). Neither
 satisfies this package's tools version. The shell deliberately does not supply one
 of those compilers or automatically download a toolchain. Install Swift 6.4+ for
 your platform separately, then expose its `usr/bin` directory:
@@ -55,6 +56,15 @@ the compiler version, not Linux compatibility of the codec dependencies. A Mac
 with compatible Xcode is still required for Apple SDK builds and simulator tests.
 See [official toolchain installation](https://www.swift.org/install/) and the
 [shared environment options](../README.md#development-environments).
+
+These are dated observations of nixpkgs, not an exhaustive claim about third-party
+toolchain overlays or auto-updated flakes. Searching for alternatives found
+[swift-nixos](https://github.com/lucasly-ba/swift-nixos), a community source-build
+recipe reporting Swift 6.5-dev, not a drop-in stable 6.4 toolchain package. It has
+not been qualified for this project. No suitable auto-updated stable Swift toolchain
+flake was identified in that search; this does not establish that none exists.
+Even auto-updated upstream flakes remain pinned locally by `flake.lock` until an
+explicit update. Recheck available versions before maintaining a custom derivation.
 
 ## Licensing
 
