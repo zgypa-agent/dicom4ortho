@@ -2,7 +2,8 @@
 
 Implementation tracking: [#82](https://github.com/open-ortho/dicom4ortho/issues/82).
 See [repository layout and dependency selection](REPOSITORY_LAYOUT.md#additional-implementations)
-for the agreed scope. DICOMKit is selected; its integration is not yet qualified.
+for the agreed scope. DICOMKit is integrated; qualification is incremental and
+the port is not feature-complete.
 
 ## Development environment investigation (2026-10-18)
 
@@ -63,22 +64,84 @@ includes all codes, photograph types, views, source provenance, and the lock's
 SHA-256; it does not modify the Python lock. Swift builds and runtime do not run
 Python.
 
-The initial `OrthodonticPhotograph.materializeRGB8` path serializes single-frame
-RGB8 photographs with the reviewed view mappings. Three Swift tests pass on macOS,
-including materialization and self-readback for all 73 views and rejection of
-missing directions or inconsistent pixel sizes. This is a first implementation
-slice, not the complete port: acquisition/EXIF metadata, treatment progress,
-compressed-image preservation, modern codec integration, independent conformance
-tests, and the remaining Python materialization behavior still need implementation.
+The current materializer supports RGB8, explicit/implicit little-endian output,
+JPEG Baseline, JPEG Lossless SV1, JPEG-LS Lossless, JPEG 2000 lossless/lossy,
+HTJ2K lossless/RPCL/lossy, JPEG XL lossless/lossy, and RLE Lossless through DICOMKit.
+Lossy modes require explicit quality intent. The final SOP Instance UID supplied
+by the caller is preserved: the private uncompressed intermediate is not a separate
+published predecessor. Generated study, series, and SOP UIDs use the existing
+dicom4ortho roots, with DICOMKit supplying unique suffixes.
+
+`materializeJPEG` preserves an existing 8-bit, three-component baseline JPEG
+without recompression. Unsupported processes and malformed frame headers are
+rejected rather than mislabeled. Explicit acquisition timestamps and timezones,
+canonical treatment events/day offsets, and provider/operator roles are supported.
+Future events and missing acquisition dates for treatment progress are rejected;
+zero-day offsets remain valid.
+
+Independent checks on synthetic 64×64 and 1024×1024 RGB fixtures:
+
+- All 13 encoding choices were decoded independently. Lossless outputs reproduce
+  samples exactly. Lossy error metrics were recorded, not interpreted as clinical
+  acceptability thresholds.
+- pydicom 3.0.2 with independent libjpeg/OpenJPEG/CharLS decoding and Pillow were
+  used for the applicable formats. JPEG XL was decoded with libjxl 0.12.0 `djxl`;
+  it is not recognized by that pydicom version's transfer-syntax dictionary.
+- All 73 Swift view mappings match Python semantically for anatomy, devices,
+  view/modifier sequences, acquisition context, and descriptions. **Intentional
+  difference:** IV28/IV30 emit an empty Patient Orientation rather than omitting
+  it. Independent validation found the Python omission violates the General Image
+  Type 2C requirement when Image Orientation (Patient) is absent. This does not
+  supply an invented orientation or change Python; the parity oracle checks this
+  exception explicitly.
+- `dciodvfy` snapshot 20260927113651 returned zero errors for all 13 initial
+  encoding fixtures. Each reported eight warnings: empty patient/study values
+  needed for DICOMDIR, and the profile's standard-extended View Code Sequence.
+  Successful validation is not a declaration of complete profile conformance.
+- After the Patient Orientation correction, all **87** generated instances
+  (13 encodings, 73 view fixtures, one treatment-progress fixture) passed
+  `dciodvfy` with zero errors. Extended-profile and empty-value warnings remain.
+- **11 Swift tests pass** on macOS. The final device and simulator library
+  cross-builds pass; the 1024×1024 encoding matrix also passes independent decoding.
+
+The reproducible independent decoding/parity check is:
+
+```sh
+# On the Mac, use Swift 6.4.1; the destination must contain synthetic data only.
+DICOM4ORTHO_TEST_ARTIFACTS=/path/to/artifacts swift test
+# Optional larger matrix: set DICOM4ORTHO_TEST_IMAGE_SIZE=1024 (default 64).
+# In a separate Python validation environment, with djxl on PATH:
+python tools/validate_swift_encodings.py /path/to/artifacts --python-root .
+```
+
+The Python oracle's dependencies are separate from the library's Python runtime
+environment; see its module documentation. It compares clinical mappings only
+when `--python-root` is supplied. A self-readback by DICOMKit is not the independent
+codec check.
+
+Remaining implementation includes EXIF fallback and other image import formats,
+JP2/JPEG 2000 preservation, higher-level study/series helpers, broader pixel layouts,
+JPEG XL JPEG recompression, and the remaining Python materialization behavior.
+JPEG 2000 Part 2 encoding is not currently exposed: DICOMKit rejects that path.
 
 Before adding the RGB8 materializer, the initial package built successfully for
 `arm64-apple-ios18.0` and `arm64-apple-ios18.0-simulator` against the installed SDKs
 (73.20 and 58.97 seconds). These were cross-compilation checks, not simulator test
 execution. After adding the RGB8 materializer, all three macOS Swift tests passed
 again and both device and simulator library builds passed (2.21 and 1.91 seconds
-incremental). No tests have yet executed inside an iOS simulator.
+incremental). Device and simulator builds also passed after adding the encoding
+and clinical metadata paths. No tests have yet executed inside an iOS simulator.
 `Package.resolved` records the dependency graph used by the macOS tests.
+
+**Simulator test-execution limitation:** a user-local `.xctoolchain` symlink was
+registered for the expanded signed toolchain, and `xcrun` selects Swift 6.4.1.
+However, Xcode 26.3's package resolver still rejects tools version 6.4 as newer
+than its built-in 6.2.4, even with `xcodebuild -toolchain` explicitly selecting it.
+Thus SwiftPM cross-compilation works but Xcode simulator testing requires a newer
+compatible Xcode. No OS upgrade or replacement of system Xcode was attempted.
 
 Python baseline: 106 tests run, 3 skipped, across `test_models`, `test_photography`,
 `test_generated_codes`, and `test_jpeg2000`. The container's pre-existing Python
 environment needs the Nix GCC C++ runtime on `LD_LIBRARY_PATH` for NumPy to import.
+The subsequent full non-E2E Python suite ran 131 tests with 4 existing skips and
+no failures. Network/Docker E2E tests were not run for this materialization work.

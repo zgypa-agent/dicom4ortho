@@ -25,6 +25,16 @@ import DICOMKit
         if keyword == "IV29" {
             #expect(file.dataSet[.viewCodeSequence] == nil)
         }
+        if ["IV28", "IV30"].contains(keyword) {
+            #expect(file.dataSet[.patientOrientation] != nil)
+            #expect(file.dataSet.string(for: .patientOrientation) == "")
+        }
+        if let directory = ProcessInfo.processInfo.environment["DICOM4ORTHO_TEST_ARTIFACTS"] {
+            let url = URL(fileURLWithPath: directory, isDirectory: true)
+                .appendingPathComponent("views", isDirectory: true)
+            try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+            try bytes.write(to: url.appendingPathComponent(keyword + ".dcm"))
+        }
     }
 }
 

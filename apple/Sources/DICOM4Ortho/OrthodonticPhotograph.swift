@@ -10,6 +10,11 @@ public enum MaterializationError: Error, Equatable {
     case invalidPixelData
     case invalidUID(String)
     case invalidTerminology(String)
+    case invalidCompressionQuality
+    case invalidClinicalDate
+    case acquisitionDateRequired
+    case treatmentEventAfterAcquisition
+    case unsupportedJPEG
 }
 
 /// Patient and instance context for a photograph. Empty Type 2 values remain empty.
@@ -24,13 +29,20 @@ public struct PhotographMetadata: Sendable {
     public var sopInstanceUID: String
     public var imageType: String
     public var directionKeyword: String?
+    public var acquisitionDateTime: Date?
+    public var acquisitionTimeZone: TimeZone = .current
+    public var treatmentProgress: TreatmentProgress?
+    public var providerFamilyName = ""
+    public var providerGivenName = ""
+    public var operatorFamilyName = ""
+    public var operatorGivenName = ""
 
-    /// Generate instance identity once so repeated serialization retains it.
+    /// Generate final identity once, under dicom4ortho's existing registered UID roots.
     public init(imageType: String) {
         self.imageType = imageType
-        studyInstanceUID = UIDGenerator.generateStudyInstanceUID().value
-        seriesInstanceUID = UIDGenerator.generateSeriesInstanceUID().value
-        sopInstanceUID = UIDGenerator.generateSOPInstanceUID().value
+        studyInstanceUID = UIDGenerator(root: "1.3.6.1.4.1.61741.11.2.2").generate().value
+        seriesInstanceUID = UIDGenerator(root: "1.3.6.1.4.1.61741.11.2.3").generate().value
+        sopInstanceUID = UIDGenerator(root: "1.3.6.1.4.1.61741.11.2.4").generate().value
     }
 }
 
@@ -45,8 +57,14 @@ public struct OrthodonticPhotograph: Sendable {
     /// Materialize interleaved RGB8 samples into a Part 10 VL Photographic instance.
     /// The input contains exactly three bytes per pixel, with no row padding or alpha.
     public func materializeRGB8(
-        pixels: Data, width: Int, height: Int, metadata: PhotographMetadata
+        pixels: Data, width: Int, height: Int, metadata: PhotographMetadata,
+        encoding: PhotographEncoding = .explicitLittleEndian
     ) throws -> Data {
+        if let quality = encoding.quality {
+            guard quality.isFinite, quality > 0, quality < 1 else {
+                throw MaterializationError.invalidCompressionQuality
+            }
+        }
         guard width > 0, height > 0, width <= 65535, height <= 65535 else {
             throw MaterializationError.invalidPixelData
         }
@@ -67,10 +85,21 @@ public struct OrthodonticPhotograph: Sendable {
         dataset.setString("RGB", for: .photometricInterpretation, vr: .CS)
         dataset.setString("00", for: .lossyImageCompression, vr: .CS)
         dataset[.pixelData] = .data(tag: .pixelData, vr: .OB, data: pixels)
-        return try DICOMFile.create(dataSet: dataset).write()
+        let native = try DICOMFile.create(dataSet: dataset).write()
+        if encoding == .explicitLittleEndian { return native }
+        let encoded = try CompressionManager().compressData(
+            native, codec: encoding.codec, quality: encoding.quality.map { .custom($0) })
+        // The native intermediate is private implementation data, not a previously
+        // published DICOM instance. The caller's UID identifies the final creation,
+        // not that intermediate; keep it even when the codec marks lossy derivation.
+        let file = try DICOMFile.read(from: encoded)
+        var finalDataset = file.dataSet
+        finalDataset.setString(metadata.sopInstanceUID, for: .sopInstanceUID, vr: .UI)
+        return try DICOMFile.create(dataSet: finalDataset,
+                                    transferSyntaxUID: encoding.transferSyntaxUID).write()
     }
 
-    private func makeMetadata(_ metadata: PhotographMetadata) throws -> DataSet {
+    func makeMetadata(_ metadata: PhotographMetadata) throws -> DataSet {
         for uid in [metadata.studyInstanceUID, metadata.seriesInstanceUID, metadata.sopInstanceUID] {
             guard Self.isValidUID(uid) else { throw MaterializationError.invalidUID(uid) }
         }
@@ -105,7 +134,16 @@ public struct OrthodonticPhotograph: Sendable {
         dataset.setString(metadata.patientFamilyName + "^" + metadata.patientGivenName,
                           for: .patientName, vr: .PN)
         dataset.setString(metadata.patientBirthDate, for: .patientBirthDate, vr: .DA)
-        dataset.setString(metadata.patientSex, for: .patientSex, vr: .CS)
+        let sex = ["M": "M", "MALE": "M", "F": "F", "FEMALE": "F", "O": "O", "OTHER": "O"]
+        dataset.setString(sex[metadata.patientSex.uppercased()] ?? "", for: .patientSex, vr: .CS)
+        if !metadata.providerFamilyName.isEmpty || !metadata.providerGivenName.isEmpty {
+            dataset.setString(metadata.providerFamilyName + "^" + metadata.providerGivenName,
+                              for: .physiciansOfRecord, vr: .PN)
+        }
+        if !metadata.operatorFamilyName.isEmpty || !metadata.operatorGivenName.isEmpty {
+            dataset.setString(metadata.operatorFamilyName + "^" + metadata.operatorGivenName,
+                              for: .operatorsName, vr: .PN)
+        }
         dataset.setString("", for: .studyDate, vr: .DA)
         dataset.setString("", for: .studyTime, vr: .TM)
         dataset.setString("", for: .accessionNumber, vr: .SH)
@@ -122,6 +160,10 @@ public struct OrthodonticPhotograph: Sendable {
         dataset.setString(view.image_laterality, for: .imageLaterality, vr: .CS)
         if let orientation = view.patient_orientation {
             dataset.setStrings(orientation, for: .patientOrientation, vr: .CS)
+        } else {
+            // PS3.3 General Image: Type 2C when Image Orientation (Patient) is absent.
+            // Unknown orientation is empty, not a guessed direction or an omitted element.
+            dataset.setString("", for: .patientOrientation, vr: .CS)
         }
         dataset.setSequence([codeItem(view.anatomic_region,
                                      modifier: view.anatomic_region_modifier,
@@ -165,7 +207,61 @@ public struct OrthodonticPhotograph: Sendable {
             }
         }
         dataset.setSequence(context, for: .acquisitionContextSequence)
+        try applyClinicalMetadata(metadata, to: &dataset)
         return dataset
+    }
+
+    private func applyClinicalMetadata(
+        _ metadata: PhotographMetadata, to dataset: inout DataSet
+    ) throws {
+        if let acquired = metadata.acquisitionDateTime {
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.calendar = Calendar(identifier: .gregorian)
+            formatter.timeZone = metadata.acquisitionTimeZone
+            formatter.dateFormat = "yyyyMMdd"
+            let date = formatter.string(from: acquired)
+            formatter.dateFormat = "HHmmss.SSSSSS"
+            let time = formatter.string(from: acquired)
+            formatter.dateFormat = "Z"
+            let offset = formatter.string(from: acquired)
+            dataset.setString(date + time + offset, for: .acquisitionDateTime, vr: .DT)
+            dataset.setString(date, for: .acquisitionDate, vr: .DA)
+            dataset.setString(time, for: .acquisitionTime, vr: .TM)
+            dataset.setString(date, for: .contentDate, vr: .DA)
+            dataset.setString(time, for: .contentTime, vr: .TM)
+            dataset.setString(offset, for: .timezoneOffsetFromUTC, vr: .SH)
+        }
+        guard let progress = metadata.treatmentProgress else { return }
+        guard let acquired = metadata.acquisitionDateTime else {
+            throw MaterializationError.acquisitionDateRequired
+        }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = metadata.acquisitionTimeZone
+        let date = try ClinicalDate(year: calendar.component(.year, from: acquired),
+                                    month: calendar.component(.month, from: acquired),
+                                    day: calendar.component(.day, from: acquired))
+        let days = try progress.eventDate.days(until: date)
+        guard days >= 0 else { throw MaterializationError.treatmentEventAfterAcquisition }
+        guard let eventCode = terminology.codes[progress.event.rawValue],
+              let eventName = terminology.codes["TemporalEventType"],
+              let offsetName = terminology.codes["OffsetFromEvent"],
+              let dayCode = terminology.codes["day"] else {
+            throw MaterializationError.invalidTerminology("Treatment progress")
+        }
+        var event = DataSet()
+        event.setString("CODE", for: .valueType, vr: .CS)
+        event.setSequence([codeItem(eventName)], for: .conceptNameCodeSequence)
+        event.setSequence([codeItem(eventCode)], for: .conceptCodeSequence)
+        var offset = DataSet()
+        offset.setString("NUMERIC", for: .valueType, vr: .CS)
+        offset.setSequence([codeItem(offsetName)], for: .conceptNameCodeSequence)
+        offset.setSequence([codeItem(dayCode)], for: .measurementUnitsCodeSequence)
+        offset.setString(String(days), for: .numericValue, vr: .DS)
+        var context = dataset.sequence(for: .acquisitionContextSequence) ?? []
+        context.append(SequenceItem(elements: event.tags.compactMap { event[$0] }))
+        context.append(SequenceItem(elements: offset.tags.compactMap { offset[$0] }))
+        dataset.setSequence(context, for: .acquisitionContextSequence)
     }
 
     private func codeDataset(_ code: Terminology.Code) -> DataSet {
