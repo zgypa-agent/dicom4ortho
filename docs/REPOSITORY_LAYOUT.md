@@ -36,9 +36,11 @@ use `make help` to list them. Builds produce wheels and source distributions in
 root `dist/`. Installed applications use the package and its bundled resources,
 not paths within this checkout.
 
-`tools/generate_codes.py` writes
-`python/dicom4ortho/_generated_codes.py`. Normal builds and runtime use this
-committed terminology lock offline. Explicit `make update_codes` and
+`tools/generate_codes.py` resolves terminology once and writes both
+`python/dicom4ortho/_generated_codes.py` and the Swift target's
+`apple/Sources/DICOM4Ortho/Resources/terminology.json`. These are generated package
+artifacts from the same inputs, not two maintained sources. Normal builds and runtime
+use their committed artifacts offline. Explicit `make update_codes` and
 `make check_codes` operations fetch and validate upstream terminology; see
 [the terminology documentation](TERMINOLOGY.md) for source details.
 

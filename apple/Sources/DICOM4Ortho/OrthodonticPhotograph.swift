@@ -2,60 +2,36 @@ import Foundation
 import DICOMCore
 import DICOMKit
 
-/// Errors specific to the orthodontic profile, before serialization is attempted.
-public enum MaterializationError: Error, Equatable {
-    case unknownImageType(String)
-    case directionRequired(String)
-    case unknownDirection(String)
-    case invalidPixelData
-    case invalidUID(String)
-    case invalidTerminology(String)
-    case invalidCompressionQuality
-    case invalidClinicalDate
-    case acquisitionDateRequired
-    case treatmentEventAfterAcquisition
-    case unsupportedJPEG
-}
-
-/// Patient and instance context for a photograph. Empty Type 2 values remain empty.
-public struct PhotographMetadata: Sendable {
-    public var patientID = ""
-    public var patientFamilyName = ""
-    public var patientGivenName = ""
-    public var patientBirthDate = ""
-    public var patientSex = ""
-    public var studyInstanceUID: String
-    public var seriesInstanceUID: String
-    public var sopInstanceUID: String
-    public var imageType: String
-    public var directionKeyword: String?
-    public var acquisitionDateTime: Date?
-    public var acquisitionTimeZone: TimeZone = .current
-    public var treatmentProgress: TreatmentProgress?
-    public var providerFamilyName = ""
-    public var providerGivenName = ""
-    public var operatorFamilyName = ""
-    public var operatorGivenName = ""
-
-    /// Generate final identity once, under dicom4ortho's existing registered UID roots.
-    public init(imageType: String) {
-        self.imageType = imageType
-        studyInstanceUID = UIDGenerator(root: "1.3.6.1.4.1.61741.11.2.2").generate().value
-        seriesInstanceUID = UIDGenerator(root: "1.3.6.1.4.1.61741.11.2.3").generate().value
-        sopInstanceUID = UIDGenerator(root: "1.3.6.1.4.1.61741.11.2.4").generate().value
-    }
-}
-
 /// Single-frame visible-light photograph materialization. No network behavior.
+///
+/// This value combines the orthodontic profile with DICOMKit's writer and codecs.
+/// It loads immutable terminology once and can then be reused for many photographs.
+/// The public API returns complete DICOM Part 10 bytes, not a dependency-specific
+/// dataset. Encoding and clinical mapping remain separate implementation concerns.
 public struct OrthodonticPhotograph: Sendable {
     private let terminology: Terminology
 
+    /// Load the bundled reviewed terminology. Throws if the resource is missing or invalid.
     public init() throws {
         terminology = try .bundled()
     }
 
     /// Materialize interleaved RGB8 samples into a Part 10 VL Photographic instance.
     /// The input contains exactly three bytes per pixel, with no row padding or alpha.
+    ///
+    /// - Parameters:
+    ///   - pixels: Row-major, interleaved red/green/blue samples, eight bits per component.
+    ///   - width: Positive column count, at most 65535 (DICOM US).
+    ///   - height: Positive row count, at most 65535 (DICOM US).
+    ///   - metadata: Explicit clinical context and final instance identity.
+    ///   - encoding: Output representation; uncompressed Explicit VR Little Endian by default.
+    /// - Returns: Complete Part 10 file bytes, suitable for file or in-memory use.
+    /// - Throws: ``MaterializationError`` for invalid supported inputs, or the underlying
+    ///   DICOMKit error when a codec cannot encode the requested input.
+    ///
+    /// No filesystem or network effects occur. Encoding may be CPU/memory intensive;
+    /// callers choose their execution context. Lossy encoding is explicitly requested
+    /// and records derivation/provenance; a high quality value does not mean lossless.
     public func materializeRGB8(
         pixels: Data, width: Int, height: Int, metadata: PhotographMetadata,
         encoding: PhotographEncoding = .explicitLittleEndian
@@ -111,7 +87,7 @@ public struct OrthodonticPhotograph: Sendable {
         guard let view = terminology.views[keyword] else {
             throw MaterializationError.unknownImageType(keyword)
         }
-        var direction = view.view_code
+        var direction = view.viewCode
         if let requested = metadata.directionKeyword {
             guard let code = terminology.codes[requested] else {
                 throw MaterializationError.unknownDirection(requested)
@@ -154,24 +130,24 @@ public struct OrthodonticPhotograph: Sendable {
         dataset.setString("", for: .manufacturer, vr: .LO)
         dataset.setString("NO", for: .burnedInAnnotation, vr: .CS)
         dataset.setString("NO", for: .qualityControlImage, vr: .CS)
-        dataset.setString(view.series_description, for: .seriesDescription, vr: .LO)
+        dataset.setString(view.seriesDescription, for: .seriesDescription, vr: .LO)
         dataset.setString("\(keyword)^\(view.description)".replacingOccurrences(of: "\u{a0}", with: " "),
                           for: .imageComments, vr: .LT)
-        dataset.setString(view.image_laterality, for: .imageLaterality, vr: .CS)
-        if let orientation = view.patient_orientation {
+        dataset.setString(view.imageLaterality, for: .imageLaterality, vr: .CS)
+        if let orientation = view.patientOrientation {
             dataset.setStrings(orientation, for: .patientOrientation, vr: .CS)
         } else {
             // PS3.3 General Image: Type 2C when Image Orientation (Patient) is absent.
             // Unknown orientation is empty, not a guessed direction or an omitted element.
             dataset.setString("", for: .patientOrientation, vr: .CS)
         }
-        dataset.setSequence([codeItem(view.anatomic_region,
-                                     modifier: view.anatomic_region_modifier,
+        dataset.setSequence([codeItem(view.anatomicRegion,
+                                     modifier: view.anatomicRegionModifier,
                                      modifierTag: .anatomicRegionModifierSequence)],
                             for: .anatomicRegionSequence)
-        if let primary = view.primary_anatomic_structure {
+        if let primary = view.primaryAnatomicStructure {
             dataset.setSequence([codeItem(primary,
-                                         modifier: view.primary_anatomic_structure_modifier,
+                                         modifier: view.primaryAnatomicStructureModifier,
                                          modifierTag: .primaryAnatomicStructureModifierSequence)],
                                 for: .primaryAnatomicStructureSequence)
         }
@@ -180,8 +156,8 @@ public struct OrthodonticPhotograph: Sendable {
         }
         if let direction {
             var item = codeDataset(direction)
-            if !view.view_modifiers.isEmpty {
-                item.setSequence(view.view_modifiers.map { codeItem($0) },
+            if !view.viewModifiers.isEmpty {
+                item.setSequence(view.viewModifiers.map { codeItem($0) },
                                  for: .viewModifierCodeSequence)
             }
             dataset.setSequence([SequenceItem(elements: item.tags.compactMap { item[$0] })],
@@ -189,10 +165,10 @@ public struct OrthodonticPhotograph: Sendable {
         }
         var context: [SequenceItem] = []
         let groups: [(String, [Terminology.Code])] = [
-            ("OrthognathicFunctionalConditions", view.orthognathic_functional_conditions),
-            ("FindingByInspection", view.findings_by_inspection),
-            ("ObservableEntity", view.observable_entities),
-            ("DentalOcclusion", view.dental_occlusion.map { [$0] } ?? [])
+            ("OrthognathicFunctionalConditions", view.orthognathicFunctionalConditions),
+            ("FindingByInspection", view.findingsByInspection),
+            ("ObservableEntity", view.observableEntities),
+            ("DentalOcclusion", view.dentalOcclusion.map { [$0] } ?? [])
         ]
         for (name, values) in groups {
             guard let concept = terminology.codes[name] else {

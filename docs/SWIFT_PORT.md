@@ -51,18 +51,19 @@ Isolated remote workspaces:
 5. Preserve the existing Python runtime and terminology lock. Broader codec support
    is intentional; any differences in clinical metadata semantics require review.
 
-The root package manifest and initial offline terminology loader are now under
-development. The terminology JSON is exported from the committed Python lock:
+The root package manifest and offline terminology loader are implemented. A single
+maintenance command generates Python and Swift data from the same resolved inputs:
 
 ```sh
-python tools/export_terminology.py apple/Sources/DICOM4Ortho/Resources/terminology.json
-python tools/export_terminology.py apple/Sources/DICOM4Ortho/Resources/terminology.json --check
+make update_codes  # Explicit upstream refresh; updates both generated artifacts.
+make check_codes   # Upstream drift check for both; writes nothing.
 ```
 
-This maintenance command performs no upstream terminology fetch. The resource
-includes all codes, photograph types, views, source provenance, and the lock's
-SHA-256; it does not modify the Python lock. Swift builds and runtime do not run
-Python.
+These maintenance commands fetch upstream terminology. Normal builds, runtime, and
+unit tests remain offline. The JSON includes all codes, photograph types, views,
+source provenance, and the corresponding Python artifact's SHA-256. The former
+separate export command was removed; Swift data is no longer derived by importing
+the generated Python module. See [the pipeline](TERMINOLOGY.md).
 
 The current materializer supports RGB8, explicit/implicit little-endian output,
 JPEG Baseline, JPEG Lossless SV1, JPEG-LS Lossless, JPEG 2000 lossless/lossy,
@@ -145,3 +146,30 @@ Python baseline: 106 tests run, 3 skipped, across `test_models`, `test_photograp
 environment needs the Nix GCC C++ runtime on `LD_LIBRARY_PATH` for NumPy to import.
 The subsequent full non-E2E Python suite ran 131 tests with 4 existing skips and
 no failures. Network/Docker E2E tests were not run for this materialization work.
+
+## Library structure/documentation review
+
+The terminology pipeline now has one public maintenance entry point,
+`tools/generate_codes.py`, rendering all port outputs from one resolution pass.
+The former separate exporter was removed. No clinical definitions or generated
+artifact bytes were refreshed as part of this change. Offline renderer/parity tests
+check that the reviewed mappings remain unchanged; a live drift check was not run.
+
+Swift sources now place the main public types in same-named files and use
+`Type+Feature.swift` for extensions. Public APIs document input formats, defaults,
+error behavior, and clinical intent. `PhotographEncoding` is policy, not a duplicate
+registry: its typed transfer-syntax mapping uses DICOMKit definitions. Independent
+test oracles keep numeric UIDs intentionally. See `apple/README.md` for the detailed
+file map and rationale.
+
+After this refactor, 11 macOS Swift tests and both iOS library cross-builds passed.
+The non-E2E Python suite ran 134 tests with 4 existing skips; changed generator/test
+modules passed error-only Pylint. Python wheel and source-distribution builds passed,
+and the extracted source distribution's five offline terminology tests passed.
+The shared generated bundle is included for those source tests, not installed in
+the Python wheel. Both generated terminology artifacts remain byte-for-byte unchanged.
+The DocC catalog was compiled using an extracted public symbol graph with
+`xcrun docc convert ... --warnings-as-errors`, with no warnings. Every authored
+public declaration in the symbol graph has documentation (synthesized Hashable
+members use Swift's generated documentation). Simulator execution remains blocked
+by Xcode's older package resolver as described above.

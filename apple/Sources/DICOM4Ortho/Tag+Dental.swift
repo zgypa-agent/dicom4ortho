@@ -1,7 +1,8 @@
 import DICOMCore
 
 // Standard dental/visible-light tags absent from DICOMKit's convenience constants.
-// DICOM PS3.6 data dictionary; these are not private tags.
+// DICOM PS3.6 data dictionary; these are not private tags. Only missing convenience
+// members are defined here. Do not duplicate the upstream dictionary or codec UIDs.
 extension Tag {
     static let deviceSequence = Tag(group: 0x0050, element: 0x0010) // DeviceSequence
     static let viewCodeSequence = Tag(group: 0x0054, element: 0x0220) // ViewCodeSequence

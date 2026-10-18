@@ -1,11 +1,21 @@
 import Foundation
 
 /// A calendar date, not an instant whose timezone might change its clinical day.
+///
+/// Treatment-event dates have no time of day. Keeping year/month/day components
+/// prevents daylight-saving transitions or timezone conversions from changing
+/// the profile's elapsed calendar-day offset. Gregorian arithmetic uses UTC
+/// internally only to make that calculation deterministic.
 public struct ClinicalDate: Sendable, Equatable {
+    /// Gregorian year, in the range 1 through 9999.
     public let year: Int
+    /// Month number, 1 through 12.
     public let month: Int
+    /// Day number valid for the selected month and year, including leap years.
     public let day: Int
 
+    /// Construct a validated date without silently normalizing impossible dates.
+    /// - Throws: ``MaterializationError/invalidClinicalDate`` for values such as February 30.
     public init(year: Int, month: Int, day: Int) throws {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
@@ -21,8 +31,6 @@ public struct ClinicalDate: Sendable, Equatable {
         self.day = day
     }
 
-    var dicomValue: String { String(format: "%04d%02d%02d", year, month, day) }
-
     func days(until other: ClinicalDate) throws -> Int {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
@@ -33,23 +41,5 @@ public struct ClinicalDate: Sendable, Equatable {
             throw MaterializationError.invalidClinicalDate
         }
         return days
-    }
-}
-
-/// Canonical CID 4070 events used by TID 3465.
-public enum TreatmentEvent: String, Sendable {
-    case patientRegistration = "PatientRegistration"
-    case orthodonticTreatmentStarted = "OrthodonticTreatmentStarted"
-    case orthodonticTreatmentStopped = "OrthodonticTreatmentStopped"
-}
-
-/// The profile serializes the elapsed day offset, not the event's date itself.
-public struct TreatmentProgress: Sendable {
-    public let event: TreatmentEvent
-    public let eventDate: ClinicalDate
-
-    public init(event: TreatmentEvent, eventDate: ClinicalDate) {
-        self.event = event
-        self.eventDate = eventDate
     }
 }

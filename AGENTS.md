@@ -98,7 +98,8 @@ docker compose -f ./python/test/docker-compose.yml down
   access the network.
 - `make update_codes` explicitly fetches DICOM CIDs from NEMA FHIR ValueSets,
   DCM concept names from NEMA `dcm.owl`, ADA 1100 CodeSystems from Open Ortho,
-  and DENT-OIP `views.csv`. It writes the committed terminology lock with one
+  and DENT-OIP `views.csv`. One run writes Python's terminology lock and Swift's
+  `apple/Sources/DICOM4Ortho/Resources/terminology.json` from the same inputs, with one
   `SOURCE_PROVENANCE` mapping of observed URLs, SHA-256s, and FHIR version/date
   metadata. Review its generated diff before committing it.
 - Lock source path: `python/dicom4ortho/_generated_codes.py`. The root generator
