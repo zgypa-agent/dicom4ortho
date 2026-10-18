@@ -11,8 +11,9 @@ import DICOMKit
     metadata.treatmentProgress = TreatmentProgress(
         event: .orthodonticTreatmentStarted,
         eventDate: try ClinicalDate(year: 2024, month: 1, day: 1))
-    let data = try OrthodonticPhotograph().materializeRGB8(
-        pixels: Data([0, 0, 0]), width: 1, height: 1, metadata: metadata)
+    let photo = try OrthodonticPhotograph(
+        rgb8: Data([0, 0, 0]), width: 1, height: 1, metadata: metadata)
+    let data = try photo.dicomData()
     let dataset = try DICOMFile.read(from: data).dataSet
     #expect(dataset.string(for: .acquisitionDate) == "20240730")
     #expect(dataset.string(for: .acquisitionDateTime)?.hasSuffix("-0500") == true)
@@ -39,8 +40,9 @@ import DICOMKit
     metadata.providerGivenName = "Morgan"
     metadata.operatorFamilyName = "Jordan"
     metadata.operatorGivenName = "Alex"
-    let data = try OrthodonticPhotograph().materializeRGB8(
-        pixels: Data([0, 0, 0]), width: 1, height: 1, metadata: metadata)
+    let photo = try OrthodonticPhotograph(
+        rgb8: Data([0, 0, 0]), width: 1, height: 1, metadata: metadata)
+    let data = try photo.dicomData()
     let dataset = try DICOMFile.read(from: data).dataSet
     #expect(dataset.sequence(for: .acquisitionContextSequence)?.last?
         .string(for: .numericValue) == "0")
@@ -57,26 +59,25 @@ import DICOMKit
     metadata.treatmentProgress = TreatmentProgress(
         event: .patientRegistration,
         eventDate: try ClinicalDate(year: 2024, month: 2, day: 1))
-    let materializer = try OrthodonticPhotograph()
     #expect(throws: MaterializationError.acquisitionDateRequired) {
-        try materializer.materializeRGB8(
-            pixels: Data([0, 0, 0]), width: 1, height: 1, metadata: metadata)
+        try OrthodonticPhotograph(
+            rgb8: Data([0, 0, 0]), width: 1, height: 1, metadata: metadata)
     }
     metadata.acquisitionDateTime = ISO8601DateFormatter().date(from: "2024-01-01T12:00:00Z")!
     #expect(throws: MaterializationError.treatmentEventAfterAcquisition) {
-        try materializer.materializeRGB8(
-            pixels: Data([0, 0, 0]), width: 1, height: 1, metadata: metadata)
+        try OrthodonticPhotograph(
+            rgb8: Data([0, 0, 0]), width: 1, height: 1, metadata: metadata)
     }
 }
 
 @Test func normalizesPatientSexLikePython() throws {
-    let materializer = try OrthodonticPhotograph()
     for (value, expected) in [("Male", "M"), ("female", "F"), ("O", "O"),
                               ("other", "O"), ("unknown", ""), ("MF", "")] {
         var metadata = PhotographMetadata(imageType: "EV01")
         metadata.patientSex = value
-        let data = try materializer.materializeRGB8(
-            pixels: Data([0, 0, 0]), width: 1, height: 1, metadata: metadata)
+        let photo = try OrthodonticPhotograph(
+            rgb8: Data([0, 0, 0]), width: 1, height: 1, metadata: metadata)
+        let data = try photo.dicomData()
         #expect(try DICOMFile.read(from: data).dataSet.string(for: .patientSex) == expected)
     }
 }

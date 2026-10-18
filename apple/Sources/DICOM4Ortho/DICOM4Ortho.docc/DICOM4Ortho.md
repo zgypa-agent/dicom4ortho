@@ -19,19 +19,25 @@ for shared standards and clinical background. The port is incomplete.
 import Foundation
 import DICOM4Ortho
 
-let materializer = try OrthodonticPhotograph()
 var metadata = PhotographMetadata(imageType: "EV01")
 metadata.patientID = "synthetic-001"
 metadata.patientFamilyName = "Example"
 metadata.patientGivenName = "Alex"
 
-let bytes = try materializer.materializeRGB8(
-    pixels: Data([255, 0, 0]), width: 1, height: 1, metadata: metadata)
-try bytes.write(to: URL(fileURLWithPath: "example.dcm"))
+var photo = try OrthodonticPhotograph(
+    rgb8: Data([255, 0, 0]), width: 1, height: 1, metadata: metadata)
+let bytes = try photo.dicomData() // in-memory Part 10 serialization
+try photo.save(to: URL(fileURLWithPath: "example.dcm"))
 ```
 
-The result is a complete DICOM Part 10 file. Writing it to a file is optional;
-the library also supports in-memory use. Input samples are row-major RGB8 without
+Construction creates a photograph object, not serialized output or a file.
+``OrthodonticPhotograph/dicomData()`` returns complete Part 10 bytes;
+``OrthodonticPhotograph/save(to:)`` serializes and writes a local file.
+The `dataSet` property exposes the DICOMKit dataset for inspection and advanced
+edits before serialization. Copies have Swift value semantics; dataset edits do
+not edit another copy. Callers must maintain profile and pixel-layout consistency
+when bypassing typed metadata. File Meta Information is regenerated at serialization
+so edited SOP Instance identity remains synchronized. Input samples are row-major RGB8 without
 row padding or alpha. Materialization does not validate every possible DICOM VR
 constraint yet, and should not be mistaken for a complete conformance validator.
 
@@ -43,18 +49,21 @@ a general JPEG 2000, HTJ2K, or JPEG XL UID alone does not establish whether the
 codestream is reversible. Quality is codec-specific, not a diagnostic guarantee.
 
 ```swift
-let compressed = try materializer.materializeRGB8(
-    pixels: Data([255, 0, 0]), width: 1, height: 1,
+let compressed = try OrthodonticPhotograph(
+    rgb8: Data([255, 0, 0]), width: 1, height: 1,
     metadata: metadata, encoding: .jpeg2000Lossless)
 ```
 
 Preserving an existing JPEG is a different operation from encoding pixels. Use
-``OrthodonticPhotograph/materializeJPEG(imageData:metadata:)`` for the currently
+``OrthodonticPhotograph/init(jpeg:metadata:)`` for the currently
 supported baseline color JPEG subset. It preserves the compressed data rather
 than decoding and recompressing it. EXIF fallback is not implemented yet.
 The accepted JPEG input is an 8-bit, three-component SOF0 stream with component
 identifiers 1/2/3, interpreted as YCbCr. Progressive or grayscale JPEG, MPO, and JP2
 are not supported by this entry point. Supply acquisition metadata explicitly.
+Use ``OrthodonticPhotograph/init(contentsOf:metadata:)`` for a local file containing
+the same supported JPEG subset. It checks content, not extensions, never fetches
+remote URLs, and leaves output saving to a separate explicit operation.
 
 ### Preserve identity and clinical time
 

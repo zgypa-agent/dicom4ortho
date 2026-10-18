@@ -16,8 +16,9 @@ remain in the target's `.docc` catalog so DocC can combine them with symbol comm
 | File | Responsibility |
 | --- | --- |
 | `PhotographMetadata.swift` | Patient/acquisition context and final instance identity |
-| `OrthodonticPhotograph.swift` | Profile mapping and creation orchestration |
-| `OrthodonticPhotograph+JPEG.swift` | JPEG-preservation extension of the same type |
+| `OrthodonticPhotograph.swift` | One editable dataset with constructors and separate serialization/save operations |
+| `PhotographProfile.swift` | Internal clinical mapping and RGB8 codec adapter |
+| `PhotographProfile+JPEG.swift` | Internal JPEG-preservation extension |
 | `PhotographEncoding.swift` | Explicit output policy, not miscellaneous constants |
 | `ClinicalDate.swift`, `TreatmentEvent.swift`, `TreatmentProgress.swift` | Separate clinical value types |
 | `MaterializationError.swift` | Profile/input errors without hiding codec or I/O failures |
@@ -32,8 +33,9 @@ the UID alone is not a loss policy. This type restricts the RGB8 entry point to
 explicit tested choices rather than accepting arbitrary unsupported UIDs.
 
 DICOMKit owns standard `TransferSyntax` values and numeric UIDs. The enum's internal
-mapping uses those typed values, while the public `transferSyntaxUID` returns a
-string to avoid exposing dependency types in API signatures. DICOMKit's
+mapping uses those typed values, while `transferSyntaxUID` returns a string.
+The photograph model exposes DICOMKit's `DataSet` for advanced edits, analogous to
+Python's pydicom dataset; it does not invent another dataset representation. DICOMKit's
 `CompressionManager` selects codecs by string alias; the internal `codec` property
 adapts to that API, without exposing string dispatch to callers. No codec or UID
 registry is reimplemented here.
@@ -48,6 +50,13 @@ Calendar dates are separate from timestamp instants to prevent timezone or
 daylight-saving changes from corrupting elapsed-day offsets. Metadata holds
 explicit context, not capture-session or consuming-application state. DICOMKit
 provides serialization and codecs; the Python runtime is not involved.
+
+Construction and serialization are separate, matching Python's photograph lifecycle
+rather than giving a reusable builder the same name as a photograph. The internal
+profile helper is not public API. Compression can require a private serialized
+intermediate during construction because of the upstream codec API; uncompressed
+RGB8 and preserved JPEG construction do not perform a Part 10 write/read round-trip.
+`dicomData()` and `save(to:)` do not re-encode the stored samples or change identity.
 
 DICOMKit was selected instead of maintaining a separate DCMTK/GDCM bridge or custom
 DICOM writer. Compiler/platform minimums follow the selected functionality rather

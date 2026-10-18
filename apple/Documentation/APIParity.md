@@ -11,23 +11,24 @@ from `PhotographBase` and `DicomBase`. It owns a pydicom dataset and can be edit
 before `save(filename)` serializes it. `OrthodonticController` adds convenience
 conversion methods that return that photograph model.
 
-Swift currently gives the same type name to a different role: a reusable,
-stateless-with-respect-to-images builder holding terminology.
-`OrthodonticPhotograph().materializeRGB8(...)` or `materializeJPEG(...)` returns
-serialized `Data`, not a photograph model. There is no separate editable instance
-and save operation. That lifecycle/result-type difference is substantive; renaming
-the methods would not fix it.
+Swift now constructs a photograph value with `init(rgb8:width:height:metadata:encoding:)`
+or `init(jpeg:metadata:)`. The value owns an editable DICOMKit `dataSet`.
+`dicomData()` serializes it in memory and `save(to:)` writes a local file separately.
+The earlier public `materializeRGB8`/`materializeJPEG` builder design was removed
+before release, rather than retained as a second, conflicting lifecycle.
 
 ## Current correspondence
 
 | Operation | Python | Swift |
 | --- | --- | --- |
-| Construct one photograph | `OrthodonticPhotograph(**metadata)` | No equivalent instance model; builder returns serialized bytes |
+| Construct one photograph | `OrthodonticPhotograph(**metadata)` | Throwing photograph initializers owning an editable dataset |
 | Convenience conversion | `OrthodonticController.convert_image_to_dicom4orthograph(metadata)` | No controller equivalent |
-| Save one photograph | `photo.save(filename)` | Caller writes returned Foundation `Data` |
-| In-memory encoded input | `input_image_bytes` with filename `None` | Baseline-color JPEG only through `materializeJPEG` |
-| RGB8 pixels and explicit encoding | Image ingestion through Pillow/model | `materializeRGB8`; broader output codec choices are intentional extensions |
-| Clinical context | Metadata keyword arguments and setters | Typed `PhotographMetadata` supplied per call |
+| Save one photograph | `photo.save(filename)` | `photo.save(to: URL)`; an explicit local destination is required |
+| In-memory serialization | `photo.to_byte()` returns a file-like object | `photo.dicomData()` returns Foundation `Data` |
+| In-memory encoded input | `input_image_bytes` with filename `None` | Baseline-color JPEG only through `init(jpeg:metadata:)` |
+| File-based encoded input | `input_image_filename` | `init(contentsOf:metadata:)`; local baseline-color JPEG only |
+| RGB8 pixels and explicit encoding | Image ingestion through Pillow/model | `init(rgb8:width:height:metadata:encoding:)`; broader codecs are intentional extensions |
+| Clinical context | Metadata keyword arguments and setters | Typed `PhotographMetadata` supplied at construction; advanced dataset edits afterward |
 | Date-based treatment progress | `set_treatment_progress_from_date()` and constructor metadata | `TreatmentProgress`/`ClinicalDate` with acquisition context |
 | Study/series grouping | `OrthodonticStudy`, `OrthodonticSeries` | Manual shared UIDs only; helpers missing |
 | Template construction and image-type identification | Existing Python model operations | Missing |
@@ -43,10 +44,11 @@ owns Python usage. No Python method is being renamed or deprecated for Swift's s
 Preserve equivalent operations, object lifecycle, metadata meaning, identity,
 validation, and output semantics. Swift can use throwing initializers, value types,
 argument labels, and lowerCamelCase instead of mechanically copying Python syntax.
-But an editable photograph plus a separate serialization operation is not equivalent
-to a service that returns only serialized bytes. The Swift public model/lifecycle
-needs alignment before declaring API parity; this documentation change does not
-pretend to complete that redesign.
+Construction, dataset access, and separate save/serialization now correspond in
+both languages. Swift copies have value semantics rather than Python object aliasing.
+Swift does not yet offer Python's typed post-construction setters, other file import formats,
+default output paths, study/series helpers, or templates, so full API parity is
+still not established. Raw dataset edits do not recalculate clinical context.
 
 Existing clinical parity checks cover all 73 mappings, not all public operations.
 IV28/IV30's empty Patient Orientation correction and broader codec support are

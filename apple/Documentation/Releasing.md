@@ -9,7 +9,7 @@ A registry-based distribution would be a separate future deployment choice.
 ## Current status
 
 The Swift port is incomplete and is **not release-qualified**. In particular,
-public API/lifecycle parity is unfinished and iOS simulator test execution remains
+full public API parity is unfinished and iOS simulator test execution remains
 blocked by the available Xcode resolver. Passing macOS tests and cross-compilation
 does not satisfy all release gates. See [development status](Development.md) and
 [API gaps](APIParity.md).

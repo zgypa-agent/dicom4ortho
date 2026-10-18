@@ -31,12 +31,13 @@ private let encodings: [(String, PhotographEncoding)] = [
                                        UInt8(truncatingIfNeeded: (x + y) * 2)])
         }
     }
-    let materializer = try OrthodonticPhotograph()
     for (name, encoding) in encodings {
         let metadata = PhotographMetadata(imageType: "EV01")
-        let data = try materializer.materializeRGB8(
-            pixels: samples, width: size, height: size,
+        let photo = try OrthodonticPhotograph(
+            rgb8: samples, width: size, height: size,
             metadata: metadata, encoding: encoding)
+        let data = try photo.dicomData()
+        #expect(try photo.dicomData() == data, "Serialization must not re-encode \(name)")
         let file = try DICOMFile.read(from: data)
         #expect(file.transferSyntaxUID == encoding.transferSyntaxUID, "\(name)")
         #expect(file.dataSet.string(for: .lossyImageCompression)
@@ -57,8 +58,8 @@ private let encodings: [(String, PhotographEncoding)] = [
 @Test func rejectsInvalidCompressionQuality() throws {
     for quality in [Double.nan, Double.infinity, -1, 0, 1, 2] {
         #expect(throws: MaterializationError.invalidCompressionQuality) {
-            try OrthodonticPhotograph().materializeRGB8(
-                pixels: Data([0, 0, 0]), width: 1, height: 1,
+            try OrthodonticPhotograph(
+                rgb8: Data([0, 0, 0]), width: 1, height: 1,
                 metadata: .init(imageType: "EV01"), encoding: .jpeg2000Lossy(quality: quality))
         }
     }

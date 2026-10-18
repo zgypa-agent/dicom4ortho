@@ -1,9 +1,12 @@
 @startuml
-title Current Swift implementation (not the Python object lifecycle)
+title Current Swift photograph model and internal profile adapter
 class OrthodonticPhotograph <<struct>> {
-    +init() throws
-    +materializeRGB8(pixels, width, height, metadata, encoding): Data
-    +materializeJPEG(imageData, metadata): Data
+    +init(rgb8, width, height, metadata, encoding) throws
+    +init(jpeg, metadata) throws
+    +init(contentsOf: URL, metadata) throws
+    +dataSet: DataSet
+    +dicomData(): Data
+    +save(to: URL)
 }
 class PhotographMetadata <<struct>>
 class PhotographEncoding <<enum>>
@@ -11,7 +14,9 @@ class Terminology <<struct>>
 class ClinicalDate <<struct>>
 class TreatmentEvent <<enum>>
 class TreatmentProgress <<struct>>
-OrthodonticPhotograph *-- Terminology
+class PhotographProfile <<internal struct>>
+OrthodonticPhotograph ..> PhotographProfile : constructs dataset
+PhotographProfile *-- Terminology
 OrthodonticPhotograph ..> PhotographMetadata
 OrthodonticPhotograph ..> PhotographEncoding
 OrthodonticPhotograph ..> DICOMKit : serialization / codecs

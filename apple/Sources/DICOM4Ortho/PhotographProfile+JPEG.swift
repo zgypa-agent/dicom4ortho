@@ -2,7 +2,7 @@ import Foundation
 import DICOMCore
 import DICOMKit
 
-extension OrthodonticPhotograph {
+extension PhotographProfile {
     /// Preserve an existing 8-bit, three-component baseline JPEG without recompression.
     /// Other JPEG processes are rejected rather than mislabeled as JPEG Baseline.
     ///
@@ -10,14 +10,14 @@ extension OrthodonticPhotograph {
     ///   - imageData: Complete SOF0 JPEG interchange stream with three 8-bit YCbCr
     ///     components identified as 1/2/3. Not PNG, JP2, MPO, or progressive JPEG.
     ///   - metadata: Clinical context; EXIF values are not imported by this entry point yet.
-    /// - Returns: Part 10 bytes containing the unchanged JPEG stream (plus DICOM padding).
+    /// - Returns: An in-memory file model retaining the JPEG stream without serialization.
     /// - Throws: ``MaterializationError/unsupportedJPEG`` for unsupported headers,
     ///   profile validation errors, or an underlying serialization error.
     ///
     /// Preserving a lossy JPEG is different from applying a new lossy compression:
     /// the source stays ORIGINAL with its existing lossy flag, rather than being
     /// decoded/re-encoded and marked as a new compressed derivation.
-    public func materializeJPEG(imageData: Data, metadata: PhotographMetadata) throws -> Data {
+    func makeJPEG(imageData: Data, metadata: PhotographMetadata) throws -> DICOMFile {
         let dimensions = try Self.baselineJPEGDimensions(imageData)
         var dataset = try makeMetadata(metadata)
         dataset.setUInt16(dimensions.height, for: .rows)
@@ -39,8 +39,8 @@ extension OrthodonticPhotograph {
         dataset[.pixelData] = DataElement(
             tag: .pixelData, vr: .OB, length: .max, valueData: Data(),
             encapsulatedFragments: [imageData], encapsulatedOffsetTable: [0])
-        return try DICOMFile.create(dataSet: dataset,
-                                    transferSyntaxUID: TransferSyntax.jpegBaseline.uid).write()
+        return DICOMFile.create(dataSet: dataset,
+                                    transferSyntaxUID: TransferSyntax.jpegBaseline.uid)
     }
 
     /// Inspect only the JPEG frame header (ITU-T T.81 B.2.2); no codec is implemented here.

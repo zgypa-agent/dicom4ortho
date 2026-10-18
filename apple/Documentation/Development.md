@@ -1,5 +1,32 @@
 # Swift port development
 
+## Current continuation: photograph lifecycle
+
+The public `OrthodonticPhotograph` now represents one photograph, constructed from
+RGB8 or a supported JPEG and owning an editable DICOMKit dataset. `dicomData()`
+and `save(to:)` serialize separately, matching Python's construct/edit/save lifecycle
+rather than exposing a builder that returns bytes. Internal `PhotographProfile`
+owns the existing mapping/codec integration; the earlier public builder API was
+removed before release. See [API correspondence](APIParity.md) for remaining gaps.
+The dated investigation below describes earlier checkpoints and their old method names.
+
+Local baseline-color JPEG input now also supports `init(contentsOf:metadata:)`,
+using the same content validation as the in-memory path. It rejects remote URLs,
+does not infer a destination, and does not import EXIF yet.
+
+Validation of this continuation: **15 macOS Swift tests pass**, including file/memory
+JPEG equivalence, dataset copy independence, post-edit File Meta identity, repeated
+serialization across all 13 encodings, save replacement/error paths, and invalid
+edited identity. Both iOS library cross-builds and DocC warnings-as-errors pass.
+The lifecycle refactor's exported 87 instances passed `dciodvfy` with zero failures;
+independent pixel decoding and all 73 Python view comparisons also passed. The
+non-E2E Python baseline ran 144 tests with 4 existing skips. Linux tests remain deferred.
+
+Linux testing is deferred at the user's request, not a current acceptance blocker.
+No claim of Linux compatibility is made. iOS simulator execution, remaining image
+imports/EXIF, study/series helpers, typed metadata setters, and broader profile
+validation are still outstanding.
+
 Implementation tracking: [#82](https://github.com/open-ortho/dicom4ortho/issues/82).
 See [the shared scope](../../README.md) and [Swift guide](../README.md)
 for the implementation boundaries. DICOMKit is integrated; qualification is incremental and
