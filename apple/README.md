@@ -37,6 +37,25 @@ The second command checks cross-port terminology offline and requires the Python
 development dependencies. Swift builds and runtime require no Python. For a deliberate
 terminology refresh, follow the [shared maintenance instructions](../README.md#shared-terminology).
 
+### Nix environment
+
+`nix develop .#swift` provides support tools without invoking Python setup. Nix's
+pinned Swift is 5.8 (current nixpkgs checked during setup provides 6.2.4); neither
+satisfies this package's tools version. The shell deliberately does not supply one
+of those compilers or automatically download a toolchain. Install Swift 6.4+ for
+your platform separately, then expose its `usr/bin` directory:
+
+```sh
+SWIFT_TOOLCHAIN_BIN=/path/to/swift-toolchain/usr/bin nix develop .#swift
+```
+
+An existing compatible `swift` on `PATH` also works. Startup fails with actionable
+guidance when it cannot execute a sufficiently new compiler. This verifies only
+the compiler version, not Linux compatibility of the codec dependencies. A Mac
+with compatible Xcode is still required for Apple SDK builds and simulator tests.
+See [official toolchain installation](https://www.swift.org/install/) and the
+[shared environment options](../README.md#development-environments).
+
 ## Licensing
 
 dicom4ortho and DICOMKit are MIT-licensed. DICOMKit's source dependencies have their

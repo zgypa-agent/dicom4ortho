@@ -96,6 +96,28 @@ package-subdirectory selector. Moving it into `apple/` would allow local
 URL. Its explicit target paths keep Swift source, tests, and documentation in
 `apple/`. The reason is also recorded in the manifest itself.
 
+## Development environments
+
+One root Nix flake exposes separate environments. From the repository root:
+
+```sh
+nix develop           # Python default; also prints guidance about both options.
+nix develop .#python  # Explicit Python library/CLI and terminology tooling.
+nix develop .#swift   # Swift support tools; requires an installed Swift 6.4+ compiler.
+```
+
+The startup guidance is informational, not an interactive selection that could
+block `nix develop --command ...` or CI. The default retains Python's existing
+virtual-environment setup. The Swift shell neither installs Python dependencies
+nor initializes a virtual environment. It checks an external compiler selected via
+`SWIFT_TOOLCHAIN_BIN` (a directory containing `swift`) or `PATH`: the pinned Nix
+compiler is too old for this package. Missing/incompatible Swift produces a clear
+error instead of a misleading test-ready shell. See the [Swift setup guide](apple/README.md#nix-environment).
+
+Linux Swift/dependency compatibility remains unverified. Apple SDKs and simulator
+tests still require a compatible Xcode on macOS. The bundled `dciodvfy` derivation
+is available only on x86_64 Linux; other architectures/platforms omit it.
+
 ## Shared terminology
 
 One command, `tools/generate_codes.py`, fetches and resolves these sources once:

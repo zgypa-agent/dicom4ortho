@@ -8,6 +8,9 @@ from pathlib import Path
 
 
 SETUP_SCRIPT = Path(__file__).resolve().parents[1] / 'tools' / 'setup-python-env.sh'
+REPOSITORY = Path(__file__).resolve().parents[2]
+SWIFT_SETUP_SCRIPT = REPOSITORY / 'apple' / 'Tools' / 'SetupSwiftEnvironment.sh'
+SHELL_HELP = REPOSITORY / 'tools' / 'development-shell-help.sh'
 
 
 class TestDevelopmentEnvironment(unittest.TestCase):
@@ -78,3 +81,73 @@ class TestDevelopmentEnvironment(unittest.TestCase):
         self.assertIn(f'ACTIVE={self.bin_directory.parent}', result.stdout)
         flags = next(line for line in result.stdout.splitlines() if line.startswith('FLAGS='))
         self.assertNotIn('h', flags.removeprefix('FLAGS='))
+
+
+class TestSwiftDevelopmentEnvironment(unittest.TestCase):
+    """Check toolchain selection without installing Swift or creating a Python venv."""
+
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+
+    def _swift(self, version: str, status: int = 0) -> Path:
+        binary = self.root / 'toolchain' / 'swift'
+        binary.parent.mkdir(exist_ok=True)
+        binary.write_text(f'#!/bin/sh\nprintf "%s\\n" "{version}"\nexit {status}\n',
+                          encoding='utf-8')
+        binary.chmod(0o755)
+        return binary.parent
+
+    def _run_setup(
+        self, toolchain: Path | None = None, search_path: Path | None = None
+    ) -> subprocess.CompletedProcess:
+        environment = dict(os.environ, PATH=str(search_path or self.root / 'empty'))
+        environment.pop('SWIFT_TOOLCHAIN_BIN', None)
+        if toolchain is not None:
+            environment['SWIFT_TOOLCHAIN_BIN'] = str(toolchain)
+        return subprocess.run(
+            ['/bin/bash', '-eu', '-c', 'source "$1"', 'swift-setup', str(SWIFT_SETUP_SCRIPT)],
+            cwd=self.root, env=environment, capture_output=True, text=True, check=False)
+
+    def test_missing_swift_explains_how_to_select_a_toolchain(self):
+        result = self._run_setup()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('not on PATH', result.stderr)
+        self.assertIn('SWIFT_TOOLCHAIN_BIN', result.stderr)
+
+    def test_invalid_override_fails_instead_of_silently_using_another_compiler(self):
+        result = self._run_setup(self.root / 'missing')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('must contain an executable swift', result.stderr)
+
+    def test_old_unrecognized_and_failed_toolchains_are_rejected(self):
+        for version, status in [('Swift version 5.8', 0), ('Apple Swift version 6.2.4', 0),
+                                ('unknown version', 0), ('cannot execute', 1)]:
+            with self.subTest(version=version):
+                result = self._run_setup(self._swift(version, status))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertNotIn('shell ready', result.stdout)
+
+    def test_supported_toolchains_do_not_set_up_python(self):
+        for version in ['Swift version 6.4.1', 'Apple Swift version 6.4', 'Swift version 7.0']:
+            with self.subTest(version=version):
+                result = self._run_setup(self._swift(version))
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn('Swift shell ready', result.stdout)
+                self.assertFalse((self.root / '.venv').exists())
+
+    def test_existing_path_toolchain_works_without_an_override(self):
+        result = self._run_setup(search_path=self._swift('Swift version 6.4.1'))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('Swift shell ready', result.stdout)
+
+    def test_help_advertises_both_shells_without_reading_stdin(self):
+        for selected in ('python', 'swift'):
+            result = subprocess.run(
+                ['/bin/bash', '-c', 'source "$1" "$2"', 'shell-help', str(SHELL_HELP), selected],
+                stdin=subprocess.DEVNULL, capture_output=True, text=True, check=True, timeout=5)
+            self.assertIn(f'selected: {selected}', result.stdout)
+            self.assertIn('nix develop .#python', result.stdout)
+            self.assertIn('nix develop .#swift', result.stdout)
+            self.assertIn('Xcode', result.stdout)

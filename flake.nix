@@ -1,5 +1,5 @@
 {
-  description = "dicom4ortho development environment";
+  description = "dicom4ortho Python and Swift development environments";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
@@ -30,48 +30,44 @@
           dontBuild = true;
           meta.platforms = [ "x86_64-linux" ];
         };
-      in
-      {
-        devShells.default = pkgs.mkShell {
-          packages = [
-            # Python interpreter — deps use python/pyproject.toml inside a root venv
-            pkgs.python310
-
-            # DICOM validation tool (extracted from Debian package; Linux x86_64 only)
-            dciodvfy
-
-            # Docker CLI + Compose for integration tests (python/test/docker-compose.yml)
-            pkgs.docker
-            pkgs.docker-compose
-
-            # Core build / dev tools
-            pkgs.gnumake
-            pkgs.git
-            pkgs.gitflow
-            pkgs.curl
-            pkgs.jq
-            pkgs.dcmtk
+        commonPackages = with pkgs; [ gnumake git gitflow curl jq dcmtk ];
+        # Do not pull an amd64 Linux binary into ARM Linux or Darwin shells.
+        validationPackages = pkgs.lib.optionals (system == "x86_64-linux") [ dciodvfy ];
+        shellHelp = mode: ''
+          source ${./tools/development-shell-help.sh} ${mode}
+        '';
+        pythonShell = pkgs.mkShell {
+          packages = commonPackages ++ validationPackages ++ [
+            pkgs.python310 pkgs.docker pkgs.docker-compose
           ];
-
-          shellHook = ''
+          shellHook = shellHelp "python" + pkgs.lib.optionalString pkgs.stdenv.isLinux ''
             # Expose libstdc++ so pip-installed native wheels (numpy, pillow, etc.) can load.
-            # This is a NixOS-specific requirement — the C++ standard library is not in the
-            # default linker search path for pip wheel binaries.
             export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:''${LD_LIBRARY_PATH:-}"
-
+          '' + ''
             # Refuse stale activation paths and stop on dependency-install errors.
             source python/tools/setup-python-env.sh || exit 1
-
-            echo ""
-            echo "dicom4ortho dev shell ready"
+            echo "dicom4ortho Python shell ready"
             echo "  Python     : $(python --version)"
             echo "  pynetdicom : $(python -c 'import pynetdicom; print(pynetdicom.__version__)')"
-            echo "  Docker     : $(docker --version 2>/dev/null || echo 'daemon not running')"
-            echo "  Make       : $(make --version | head -1)"
-            echo "  CLI        : $(which dicom4ortho)"
-            echo "  dciodvfy   : $(which dciodvfy)"
-            echo ""
           '';
+        };
+        swiftShell = pkgs.mkShell {
+          packages = commonPackages ++ validationPackages;
+          # The locked nixpkgs Swift is 5.8, below Package.swift's tools version.
+          # Do not inject an incompatible compiler or shadow a user's newer one.
+          # Use an explicitly supplied/native toolchain until Nix packages 6.4+.
+          shellHook = shellHelp "swift" + ''
+            source ${./apple/Tools/SetupSwiftEnvironment.sh} || exit 1
+          '';
+        };
+      in
+      {
+        devShells = {
+          # Preserve the existing bare `nix develop` Python workflow. The startup
+          # guidance is informational, never an interactive read that could hang CI.
+          default = pythonShell;
+          python = pythonShell;
+          swift = swiftShell;
         };
       }
     );

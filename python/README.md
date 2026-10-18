@@ -154,7 +154,8 @@ repository-wide generator tooling. The source archive omits repository-only test
 (development environment, generator, layout, and cross-port bundles); run these
 from a full Git checkout. Other Python tests/fixtures and examples remain included.
 
-The optional Nix shell creates/updates `.venv`, installs development dependencies,
+The optional `nix develop .#python` shell (also the default for `nix develop`)
+creates/updates `.venv`, installs development dependencies,
 and refreshes the editable mapping. Virtual-environment scripts contain absolute
 paths: if the checkout moves, preserve and recreate the environment. The shell
 refuses stale activation paths and does not delete the old environment:
@@ -164,6 +165,9 @@ deactivate
 mv .venv ".venv.old-$(date +%Y%m%d-%H%M%S)"
 nix develop
 ```
+
+Startup guidance also explains the separate Swift shell; it does not wait for
+input, so `nix develop .#python --command make lint` remains non-interactive.
 
 ## Implementation documentation
 
