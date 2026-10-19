@@ -10,3 +10,4 @@ exclude test/test_development_environment.py
 exclude test/test_generated_codes.py
 exclude test/test_repository_layout.py
 exclude test/test_terminology_bundles.py
+exclude test/test_api_parity_mapping.py

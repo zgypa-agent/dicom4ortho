@@ -1,5 +1,27 @@
 # Swift port development
 
+## API inventory (2026-10-19)
+
+[APIParity.md](APIParity.md) now inventories Python's photograph constructors,
+consumed metadata, inherited methods/properties, grouping, controller operations,
+terminology, utilities, and adjacent scope decisions against current Swift APIs.
+It distinguishes incomplete mappings, observable differences, explicit networking
+exclusions, and unresolved scope/baseline defects. No runtime API was changed by
+this inventory. An offline AST-based test guards operation signatures, constructor
+keyword coverage, and terminology-field coverage; it does not establish behavioral
+parity. Linux testing remains deferred.
+
+The source inventory covers 89 declared operations/properties, 26 consumed photograph
+constructor keywords, and 23 terminology fields. Only controller `send` is marked
+Excluded in those operation rows; offline worklist mapping remains Missing/in scope.
+The mapping also identifies unresolved aliasing, UID repair, optional-template,
+birth-date, direction-override, default-attribute, and warning/error behavior differences.
+
+Mapping-pass checks: 26 inventory/layout/environment tests and error-only Pylint
+for the new test passed; Python wheel/source-archive builds passed. Archive inspection
+confirmed the repository-only inventory test is excluded. The Swift runtime suite
+and independent codec checks were not rerun for this documentation/test-only pass.
+
 ## Current continuation: photograph lifecycle
 
 The public `OrthodonticPhotograph` now represents one photograph, constructed from

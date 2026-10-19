@@ -62,9 +62,12 @@ a declaration of complete profile conformance or clinical suitability.
 
 ### API compatibility across ports
 
-A port should preserve the clinical model, equivalent public operations, input
-meaning, identity rules, and error conditions. Language conventions may change
-spelling and types; they do not justify unexplained semantic differences.
+Python is the port's baseline: preserve its public operations, argument meaning,
+defaults, lifecycle, identity rules, and failure conditions within the agreed scope.
+Language conventions may change spelling and types, and internals may be optimized
+for each platform; observable differences require explicit review. Missing supported
+deprecated operations are gaps, not automatic exclusions. Networking remains outside
+the Swift port's scope; copying supplied worklist metadata is not a network operation.
 
 **The current APIs are not equivalent yet.** The [API comparison](apple/Documentation/APIParity.md)
 records the correspondence and missing operations. See each language's API guide

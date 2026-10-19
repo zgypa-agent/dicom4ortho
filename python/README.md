@@ -151,7 +151,7 @@ a copy of the project MIT license; a repository test ensures the copies match.
 
 Python distributions include their own offline resources, not Swift artifacts or
 repository-wide generator tooling. The source archive omits repository-only tests
-(development environment, generator, layout, and cross-port bundles); run these
+(development environment, generator, layout, API parity inventory, and cross-port bundles); run these
 from a full Git checkout. Other Python tests/fixtures and examples remain included.
 
 The optional `nix develop .#python` shell (also the default for `nix develop`)

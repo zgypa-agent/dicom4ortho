@@ -2,7 +2,8 @@
 ///
 /// Raw values are terminology lookup keys, not DICOM Code Values. The actual
 /// SNOMED CT concepts and display meanings come from the bundled terminology.
-/// Deprecated Python aliases are intentionally not introduced into this new API.
+/// Python's supported deprecated string aliases have not been ported yet; their
+/// absence is an API-parity gap, not a removal from the Python compatibility contract.
 public enum TreatmentEvent: String, Sendable {
     /// Registration used as the reference event for elapsed days.
     case patientRegistration = "PatientRegistration"
