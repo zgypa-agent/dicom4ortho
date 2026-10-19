@@ -175,12 +175,13 @@ Derived from `python/.pylintrc`:
 - Preserve DICOM semantics over generic refactors.
 - Do not change tag names, UID roots, transfer syntax behavior, or sequence semantics without clear requirement and tests.
 - Keep compatibility with both file-based and in-memory image workflows (`input_image_filename` and `input_image_bytes`).
-- For the Swift port, Python's in-scope public operations, defaults, lifecycle, and
-  failure conditions are the baseline. Review `apple/Documentation/APIParity.md`
-  before changing public APIs; update its source-inventory test when Python signatures
-  change. Raw dataset access does not replace typed operations. Offline worklist
-  metadata copying is in scope; network delivery is excluded. Observable differences
-  (including mutation/aliasing or UID repair) require explicit review.
+- The language APIs need not be identical. Follow the draft working-record contract
+  in `README.md#language-neutral-api-contract` and its analysis in `python/docs/API_STRUCTURE.md`.
+  Preserve Python's production binding; do not mechanically clone its 89 declarations
+  into Swift or refactor Python for aesthetics. `apple/Documentation/APIParity.md`
+  is an inventory, not the authority. Update its inventory test when Python signatures
+  change. Preserve clinical meaning, logical-record ownership, and declared identity
+  policy; offline worklist copying is in scope, network delivery is excluded.
 - For send paths (`dimse`/`wado`), validate required parameters early and log actionable errors.
 
 ## 8) Agent Workflow Checklist

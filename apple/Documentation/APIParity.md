@@ -1,20 +1,25 @@
-# Python → Swift API parity map
+# Python/Swift implementation inventory
 
 Reviewed **2026-10-19**, against the Python and Swift source at `eaa9969`.
-This is an implementation inventory and work plan, **not a declaration of parity**.
-Python runtime behavior has not been changed by this mapping pass.
+This is a source inventory, **not the language-neutral API contract** and not a
+declaration of conformance. The policy was revised after inventorying the surface:
+the APIs need not be identical, and production Python does not need an aesthetic
+rewrite. The [draft working-record contract](../../README.md#language-neutral-api-contract)
+formalizes the existing model. See [the Python structure analysis](../../python/docs/API_STRUCTURE.md)
+for evidence and the least-change adoption path. No runtime behavior changes here.
 
-## Compatibility rule and scope
+## How to use this inventory
 
-Python is the baseline for the port: preserve public operations, arguments,
-defaults, lifecycle, return meaning, identity rules, side effects, and failure
-conditions. Swift spelling and dependency-specific types can be idiomatic;
-algorithms, codecs, memory layout, and other internals can differ. A stricter
-validator, a removed deprecated operation, a different mutation model, or a new
-required argument is **not** automatically an internal optimization.
+Keep Python's existing production binding compatible. Use the shared contract's
+capabilities and semantics to design Swift, not a mechanical copy of every Python
+declaration. An existing wrapper/helper can remain Python-only; a missing clinical
+capability is still a gap. Status labels below compare current surfaces, not the
+number of declarations Swift must add. Constructor shapes, native types, legacy
+aliases, warning conventions, and method/property choices can differ between bindings
+when documented. Clinical meaning and working-record ownership must remain clear.
 
-- Include the photograph API, inherited public operations, templates/identification,
-  study/series grouping, image ingestion, and **offline MWL dataset copying**.
+- Core capabilities include working photographs/templates, edits and profile/code
+  operations, study/series grouping, image ingestion, and **offline MWL dataset copying**.
 - Networking, transport authentication, and delivery queues are excluded by the
   agreed scope. Copying an already supplied worklist is not a network operation.
 - CLI/CSV wrappers, external validation wrappers, and unrelated legacy exports
@@ -24,8 +29,8 @@ required argument is **not** automatically an internal optimization.
   terminology generator's development API are not port-facing APIs. Constructors
   and collection protocols are included despite Python's double-underscore spelling.
 - An operation's defining class is listed once. `OrthodonticPhotograph` also inherits
-  `PhotographBase` and `DicomBase` operations. The port need not copy inheritance
-  mechanically, but those callable capabilities cannot silently disappear.
+  `PhotographBase` and `DicomBase` operations. Preserve Python compatibility there;
+  Swift need not expose those base types or an identical accessor/helper inventory.
 
 Statuses used in the tables:
 
@@ -61,10 +66,29 @@ effort; other differences are captured in the metadata/state/behavior sections.
 | [utils.py](../../python/dicom4ortho/utils.py) | Internal DICOMKit adapters | Public utility surface mostly absent |
 
 Swift's current photograph is a **struct with value semantics**; Python photographs
-are mutable reference objects. Copy independence is tested in Swift, but that does
-not establish Python-compatible aliasing. In particular, Python collection `add()`
-retains the same photograph/series objects and grouping later mutates them. Settle
-this contract before adding Swift grouping; do not call it an approved difference.
+are mutable reference objects. Copy independence is tested in Swift, but shared
+working-record grouping requires caller-held handles to observe child edits (C07).
+Swift therefore needs a public ownership-model change, not an assumption that its
+current struct semantics define the contract. Explicit snapshot values remain useful.
+
+## Contract capability map
+
+Rule IDs refer to the [draft contract](../../README.md#language-neutral-api-contract),
+not new method signatures. This map replaces the earlier one-for-one spelling plan
+when planning the Swift refactor.
+
+| Contract | Existing Python structure | Current Swift / consequence |
+| --- | --- | --- |
+| C01 working record | Empty/model/image constructors and image-type templates | Requires pixels + recognized type; add partial construction, not another all-inputs-required builder |
+| C02 dataset and edits | Live `to_dataset()` plus setters and profile/progress state | Mutable DataSet exists, but most clinical edits and explicit state ownership are absent |
+| C03 profile/code enrichment | Profile mapper, independent type-code helpers, direction/progress operations | Constructor-only mapper; needs working-record operations and custom/unknown-type handling |
+| C04 context/evidence | Explicit metadata, EXIF fallback, offline MWL, clinical roles/progress | Some constructor fields work; EXIF/MWL and progressive editing remain gaps; no universal new merge policy |
+| C05 image evidence | File/byte ingestion and compressed-source preservation | RGB8/codecs and baseline JPEG work; imports/preservation incomplete; retain the codec implementation where useful |
+| C06 identity | Completion/recovery before output with registered roots | Valid identities survive, but default recovery policy needs explicit selection/documentation, not automatic Python rejection changes |
+| C07 groups | Ordered references, delayed parent-context propagation | Groups absent; struct-copy model must not group hidden snapshots of caller records |
+| C08 prepare/output | Public prepare, dataset/byte/file output, retained paths | Byte/file operations exist, but no public preparation or partial-record workflow |
+| C09 error distinctions | Incomplete records, warning/no-op compatibility, semantic and operational failures | Current strict constructors conflate some incomplete/invalid cases; Swift may use native errors without copying every warning/alias |
+| C10 adapters | Existing controllers, CLI/CSV, diagnostics and legacy helpers | No need to port every wrapper to satisfy the core; keep Python wrappers, add Swift conveniences when they provide value |
 
 ## Constructors and input metadata
 
@@ -133,7 +157,7 @@ not a tested mapping of all accepted Python inputs and errors.
 | `OrthodonticPhotograph.set_image_type_code_dataset(ds, code_dataset, creator_uid=None)` | Missing | Mutates dataset and supplied code; preserves unrelated view items; sets extension metadata/local date, uses explicit/existing/fallback creator UID, `None` code is a no-op |
 | `OrthodonticPhotograph.set_dicom_attributes_by_type_keyword(type_keyword=None)` | Partial | Construction-only mapping in internal profile helper; no remap operation, no stored `type_keyword`, no inference from embedded image-type code, different unknown/missing handling |
 | `OrthodonticPhotograph.set_view_code(keyword)` | Partial | Constructor-only `directionKeyword`; no setter that replaces view sequence and reapplies modifiers; Python unknown keyword warns and leaves dataset unchanged, Swift throws |
-| `OrthodonticPhotograph.set_treatment_progress(event_type, days)` | Missing | Supported deprecated API, with aliases/warnings and nonnegative-integer validation; absence is not an approved exclusion |
+| `OrthodonticPhotograph.set_treatment_progress(event_type, days)` | Missing | Python retains deprecated aliases/warnings and integer validation; the shared contract permits a new binding to use a typed date-first API without reproducing this legacy signature |
 | `OrthodonticPhotograph.set_treatment_progress_from_date(event_type, event_date, acquisition_date=None)` | Partial | Constructor-only progress; missing mutating setter, acquisition-date override, and rebuilding context from current view/progress state |
 | `OrthodonticPhotograph.is_extraoral()` | Missing | Predicate on stored type keyword starting with `EV`; not inferred from arbitrary dataset anatomy |
 | `OrthodonticPhotograph.is_intraoral()` | Missing | Predicate on stored type keyword starting with `IV` |
@@ -315,7 +339,9 @@ APIs; transport is excluded, while CLI parity needs a separate scope decision.
 
 ## Behavioral differences and unresolved baseline defects
 
-These are findings, **not silently approved deviations**:
+These are compatibility/design findings, not automatically requirements to copy a
+defect or duplicate a Python-only binding convenience. Resolve them against the
+shared contract and Python production compatibility:
 
 1. **Construction/templates:** Swift requires pixels + recognized type; Python permits
    image-free and unresolved-type models, including treatment context without a view.
@@ -356,53 +382,34 @@ These are findings, **not silently approved deviations**:
    metadata; they are additions, not preservation parity. Transfer-syntax save helpers
    in Python are not reliable general transcoding APIs.
 9. **Deprecated compatibility:** days-based progress and old event aliases are still
-   accepted until v2 in Python. Swift deliberately omitted them earlier; that is now
-   an outstanding parity gap, not an approved removal. Runtime warnings versus Swift
-   deprecation annotations/string wrappers need a mapped contract.
+   accepted until v2 in Python; preserve that production binding. A new Swift binding
+   need not add old aliases solely to mirror Python. Document its supported inputs
+   and preserve the underlying clinical event/day meaning.
 10. **Known source inconsistencies:** `image_bytes` setter's checks do not implement
     its documented bytes contract; manufacturer getter uses lowercase tag spelling;
     Python study `description` is documented but unused; series save can infer
     `None_1.dcm`; EXIF has duplicate unreachable Make/Model branches. Characterize
     these and distinguish intended contracts from defects before changing either port.
 11. **Errors:** Python mixes ValueError/TypeError, logging/no-op/False/None, Pillow
-    exceptions, pydicom validation, and I/O errors. Swift's typed throws can replace
-    exception classes idiomatically, but cannot silently turn accepted inputs or
-    no-op operations into failures. Record validation timing as well as error meaning.
+    exceptions, pydicom validation, and I/O errors. Preserve the existing Python
+    binding. Swift can use native throws and documented binding-specific recovery,
+    but must distinguish incomplete records from invalid supplied input under C09.
+    Record validation timing as well as error meaning.
 
-## Evidence and implementation order
+## Binding design and evidence
 
-### Proposed Swift spelling map (not implemented by this inventory)
+The earlier proposed one-for-one Swift spelling table has been withdrawn: the
+language APIs do not have to match. Use the contract capability map, not method-count
+parity. For example, a typed mutable clinical context can cover several Python
+setters, a Swift property can replace a predicate method, and codec policy can be
+typed without exposing arbitrary aliases. Preserve meaningful distinctions (provider
+versus operator, profile versus type code, draft versus invalid input) and ownership.
 
-Keep the Python operation visible rather than substituting a differently shaped
-service. These are target spellings for review, not claims that symbols exist:
-
-| Python surface | Proposed Swift spelling / constraint |
-| --- | --- |
-| `set_dicom_attributes_by_type_keyword(type_keyword=None)` | `setDicomAttributesByTypeKeyword(_ typeKeyword: String? = nil)`; same inference/no-op/remap behavior |
-| `set_view_code(keyword)` | `setViewCode(_ keyword: String)`; preserve modifiers and unknown-key handling |
-| `set_treatment_progress_from_date(event_type, event_date, acquisition_date=None)` | `setTreatmentProgressFromDate(eventType:eventDate:acquisitionDate:)`; optional date override, same context rebuild |
-| `set_treatment_progress(event_type, days)` | Deprecated `setTreatmentProgress(eventType:days:)`, not removal; include supported event aliases through a compatibility input |
-| `get_image_type_code_dataset(ds)` / `set_image_type_code_dataset(ds, code_dataset, creator_uid=None)` | `getImageTypeCodeDataset(_:)` / `setImageTypeCodeDataset(_:codeDataset:creatorUID:)`; decide Swift `inout` versus reference dataset semantics explicitly |
-| `image_type_code_dataset`, `type_keyword` | `imageTypeCodeDataset`, `typeKeyword` on the photograph, not just a separate catalog |
-| `is_extraoral()` / `is_intraoral()` | `isExtraoral()` / `isIntraoral()`; preserve predicates |
-| `is_digitized_image()` / `is_primary_image()` / `is_original_image()` / `is_derived_image()` | `isDigitizedImage()` / `isPrimaryImage()` / `isOriginalImage()` / `isDerivedImage()` are literal mappings but misleading for mutators; any `set…` replacement requires an explicit naming decision, not changed behavior |
-| `set_image()`, `set_exif_tags()`, `set_time_captured(time_captured)` | `setImage()`, `setExifTags()`, `setTimeCaptured(_:)` with the same effects/precedence |
-| `prepare()`, `add_missing_instance_uids()`, `copy_mwl_tags(dicom_mwl=None)` | `prepare()`, `addMissingInstanceUIDs()`, `copyMWLTags(_:)`; repair and offline metadata copy still required |
-| `to_dataset()` / `to_byte()` / `save(filename=None)` / `load(filename)` | Current `dataSet`, `dicomData()`, `save(to:)` are related names, not complete contracts; decide method aliases, default destination, and mutable load rather than adding an unrelated builder |
-| `patient_firstname` / `patient_lastname` | `patientFirstName` / `patientLastName`; current `patientGivenName` / `patientFamilyName` need explicit alias/rename disposition |
-| `dental_provider_firstname` / `dental_provider_lastname` | `dentalProviderFirstName` / `dentalProviderLastName`; do not drop the dental-provider role from the port-facing name |
-| `operator_firstname` / `operator_lastname` | `operatorFirstName` / `operatorLastName`; preserve separate operator role |
-| `view_code_keyword`, `patient_birthdate`, `equipment_manufacturer` | `viewCodeKeyword`, `patientBirthdate`, `equipmentManufacturer`; current `directionKeyword`, DA-string birth date, and missing manufacturer field are not completed mappings |
-| Other writable properties | Same concept in lowerCamelCase (UID/ID acronyms retained), with getter and setter behavior; construction-only fields do not satisfy this |
-| `OrthodonticSeries` / `OrthodonticStudy` | Same type names with `add`, collection iteration/count, `save`; UID/description propagation timing and reference identity must be preserved/resolved before choosing storage |
-| Controller `convert_image_to_dicom4orthograph` and companions | Corresponding lowerCamelCase operations; explicitly settle the legacy `dicom4orthograph` typo if correcting it, without losing return/state/path semantics |
-
-Constructor shape also needs review: Python's optional encoded filename/bytes,
-optional type, optional destination, and metadata cannot be replaced solely by
-mandatory RGB8 dimensions or a required JPEG+recognized-type initializer. Typed
-Swift overloads/metadata may represent the inputs, but must keep equivalent accepted
-cases, defaults, and validation timing. A full signature design should follow the
-characterization tests, not be guessed from the existing partial Swift API.
+Python constructor/default/output behavior remains compatible. Swift can expose
+different overloads and native types, but needs partial/template construction as
+well as completed-image construction to implement C01. Its clinical errors and identity
+policy are documented binding decisions, not reasons to rewrite production Python.
+No new Swift signature is selected by this documentation pass.
 
 ### Evidence and next work
 
@@ -415,23 +422,26 @@ do not prove defaults, error timing, mutations, aliases, or collection equivalen
 See [validation history](Development.md), [Swift usage](../Sources/DICOM4Ortho/DICOM4Ortho.docc/DICOM4Ortho.md),
 and [Python usage](../../python/README.md) rather than duplicating examples here.
 
-Recommended parity work, in dependency order (unchecked means unfinished):
+Contract-driven work, in dependency order (unchecked means unfinished):
 
 - [ ] Characterize unknown/omitted inputs, identity repair, constructor defaults,
   mutable aliasing, warning/no-op behavior, and the baseline defects above in Python tests.
-- [ ] Resolve the reference/value contract and property/parameter spelling map;
-  use direct lowerCamelCase equivalents unless a different name is explicitly reviewed.
+- [ ] Review the working-record contract and binding-specific policies; preserve
+  Python compatibility rather than naming parity. Implement logical shared records in Swift.
 - [ ] Add templates/type-code get/set, view remapping and predicates, and mutating
-  patient/personnel/date/progress properties (including supported deprecated APIs).
+  patient/personnel/date/progress capabilities; retain legacy APIs in Python without
+  automatically introducing them into a new Swift binding.
 - [ ] Add general file/byte imports, EXIF precedence, raw grayscale/container paths,
   and JP2/JPEG 2000 codestream preservation without implicit recompression.
-- [ ] Map prepare, default output path, load, UID repair, and save-time syntax operations;
-  preserve clinically valid identity/File Meta consistency and characterize retired syntax.
+- [ ] Implement preparation and output with documented identity policy and valid
+  File Meta consistency; keep Python destination/legacy-syntax behavior compatible.
 - [ ] Implement reference-consistent study/series collection operations and deferred
-  propagation; then offline MWL mapping and controller conversion conveniences.
+  propagation; then offline MWL mapping and useful binding-specific conveniences.
 - [ ] Resolve CSV/CLI, external diagnostics, and legacy utility/export scope decisions.
-- [ ] For each completed row, add paired fixtures testing inputs, normalized outputs,
-  defaults, mutations, failures/warnings, and lifecycle timing; only then mark it equivalent.
+- [ ] Add contract scenarios for inputs, clinical outputs, logical-record mutation,
+  identity and lifecycle; use separate binding tests for legacy formats, defaults,
+  warnings, and method-specific behavior. Do not require all inventory rows to become
+  identical public declarations or warnings across languages.
 
 Networking stays excluded. Linux testing is deferred at the user's request and does
 not block this mapping work. iOS simulator execution remains a separate environment

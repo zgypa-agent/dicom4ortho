@@ -2,8 +2,9 @@
 ///
 /// Raw values are terminology lookup keys, not DICOM Code Values. The actual
 /// SNOMED CT concepts and display meanings come from the bundled terminology.
-/// Python's supported deprecated string aliases have not been ported yet; their
-/// absence is an API-parity gap, not a removal from the Python compatibility contract.
+/// Python's legacy string aliases remain part of its compatibility binding. Swift
+/// exposes canonical cases; the shared contract does not require identical spellings
+/// or legacy aliases in a new language binding.
 public enum TreatmentEvent: String, Sendable {
     /// Registration used as the reference event for elapsed days.
     case patientRegistration = "PatientRegistration"

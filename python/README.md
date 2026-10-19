@@ -171,6 +171,7 @@ input, so `nix develop .#python --command make lint` remains non-interactive.
 
 ## Implementation documentation
 
+- [API structure, contract analysis, and minimal-change compatibility](docs/API_STRUCTURE.md)
 - [Class diagram](docs/class_diagram.puml)
 - [Terminology compatibility and historical validation](docs/TERMINOLOGY.md)
 - [Release checklist](docs/RELEASING.md)

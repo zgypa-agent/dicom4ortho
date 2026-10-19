@@ -8,7 +8,8 @@ An incomplete port of dicom4ortho's DICOM creation, excluding networking.
   is the authoritative Swift usage documentation. Public declarations supply the
   detailed symbol reference; a compatible Xcode/DocC build renders both together.
 - [Source organization and design](Sources/DICOM4Ortho/DICOM4Ortho.docc/Design.md)
-- [Python/Swift API comparison and gaps](Documentation/APIParity.md)
+- [Python/Swift implementation inventory and contract capability map](Documentation/APIParity.md)
+- [Shared working-record API contract](../README.md#language-neutral-api-contract)
 - [Development status, validation, and toolchain limitations](Documentation/Development.md)
 - [Type diagram](Documentation/ClassDiagram.puml)
 - [Swift release/distribution checklist](Documentation/Releasing.md)

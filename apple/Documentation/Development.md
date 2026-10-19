@@ -1,5 +1,21 @@
 # Swift port development
 
+## Contract formalization (2026-10-19)
+
+The [shared draft contract](../../README.md#language-neutral-api-contract) now defines
+capabilities rather than identical APIs. The [Python structure analysis](../../python/docs/API_STRUCTURE.md)
+identifies the existing mutable working-record philosophy and the minimal-change
+path. Production Python bindings remain supported; current Swift design is not
+authoritative and needs refactoring after contract review. The source inventory's
+one-for-one spelling plan has been withdrawn. No runtime behavior changes in this pass.
+Nine new Python characterization tests cover partial records, live dataset edits,
+type-code/profile separation, explicit dates/progress, identity preparation/recovery,
+shared grouping and controller state. The existing Python 3.10 environment passed
+156 non-E2E tests with 4 skips. See the Python analysis for the separately recorded
+exploratory newer-dependency failures, which were not repaired in this pass.
+A remote DocC recheck was attempted but timed out without a result; no new Swift
+build/test or DocC success is claimed for this formalization pass.
+
 ## API inventory (2026-10-19)
 
 [APIParity.md](APIParity.md) now inventories Python's photograph constructors,

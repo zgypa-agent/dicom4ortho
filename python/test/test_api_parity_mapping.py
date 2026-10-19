@@ -1,6 +1,7 @@
-"""Keep the reviewed Swift parity inventory aligned with Python source, offline.
+"""Keep the implementation inventory aligned with Python source, offline.
 
-This checks inventory coverage, not runtime equivalence or Swift implementation.
+This checks inventory coverage, not a requirement for identical language APIs.
+The shared capability contract, not the count of declarations, guides Swift design.
 AST inspection avoids importing runtime dependencies or executing image/network code.
 """
 
@@ -52,7 +53,7 @@ def _signature(function: ast.FunctionDef) -> str:
 
 
 class TestAPIParityMapping(unittest.TestCase):
-    """New/renamed Python operations must receive an explicit parity disposition."""
+    """New/renamed Python operations must receive an explicit inventory disposition."""
 
     def setUp(self):
         self.mapping = MAPPING.read_text(encoding='utf-8')

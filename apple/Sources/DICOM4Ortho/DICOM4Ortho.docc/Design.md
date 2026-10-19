@@ -4,6 +4,10 @@ Why the Swift target separates clinical context, mapping, and codec policy.
 
 ## Overview
 
+This article explains the current implementation. It is not the authority for the
+shared API contract: logical shared-record ownership and partial construction need
+further work before this Swift value-type model satisfies that draft contract.
+
 The target is small enough for a flat source directory. Each main public type has
 a same-named UpperCamelCase `.swift` file, whether it is a struct or enum. Extension
 files use `Type+Feature.swift`. Names describe responsibilities, not language constructs:
