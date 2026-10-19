@@ -129,6 +129,7 @@ class TestRepositoryLayout(unittest.TestCase):
 
     def test_documentation_relative_links_resolve(self):
         documents = [REPOSITORY_ROOT / 'README.md', PYTHON_ROOT / 'README.md']
+        documents += list((REPOSITORY_ROOT / 'docs').glob('*.md'))
         documents += list((PYTHON_ROOT / 'docs').glob('*.md'))
         # The Python sdist carries Python docs, not the Swift documentation tree.
         if (REPOSITORY_ROOT / 'Package.swift').exists():
@@ -146,6 +147,15 @@ class TestRepositoryLayout(unittest.TestCase):
                     continue
                 with self.subTest(document=document, link=link):
                     self.assertTrue(target.exists(), f'Missing documentation target: {target}')
+
+    def test_shared_contract_lives_in_docs_not_the_readme(self):
+        readme = (REPOSITORY_ROOT / 'README.md').read_text(encoding='utf-8')
+        contract = (REPOSITORY_ROOT / 'docs' / 'API_CONTRACT.md').read_text(encoding='utf-8')
+        self.assertIn('(docs/API_CONTRACT.md)', readme)
+        self.assertNotIn('## Language-neutral API contract', readme)
+        self.assertNotIn('### C01', readme)
+        self.assertEqual(re.findall(r'^## C(\d{2}) —', contract, re.MULTILINE),
+                         [f'{number:02d}' for number in range(1, 11)])
 
     def test_fixed_dicom_fixture_is_preserved(self):
         self.assertTrue((PYTHON_ROOT / 'test' / 'resources' / 'test.dcm').is_file())

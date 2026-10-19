@@ -13,7 +13,7 @@ for qualification results and outstanding work, and the
 [project README](https://github.com/open-ortho/dicom4ortho#introduction)
 for shared standards and clinical background. The port is incomplete.
 This guide describes the current implementation, not the target API design. The
-[draft working-record contract](https://github.com/open-ortho/dicom4ortho#language-neutral-api-contract)
+[draft working-record contract](https://github.com/open-ortho/dicom4ortho/blob/develop/docs/API_CONTRACT.md)
 formalizes the existing Python philosophy; Swift ownership, partial construction,
 and progressive-edit capabilities still need refactoring to satisfy it.
 

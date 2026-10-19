@@ -176,7 +176,7 @@ Derived from `python/.pylintrc`:
 - Do not change tag names, UID roots, transfer syntax behavior, or sequence semantics without clear requirement and tests.
 - Keep compatibility with both file-based and in-memory image workflows (`input_image_filename` and `input_image_bytes`).
 - The language APIs need not be identical. Follow the draft working-record contract
-  in `README.md#language-neutral-api-contract` and its analysis in `python/docs/API_STRUCTURE.md`.
+  in `docs/API_CONTRACT.md` and its analysis in `python/docs/API_STRUCTURE.md`.
   Preserve Python's production binding; do not mechanically clone its 89 declarations
   into Swift or refactor Python for aesthetics. `apple/Documentation/APIParity.md`
   is an inventory, not the authority. Update its inventory test when Python signatures

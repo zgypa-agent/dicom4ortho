@@ -4,7 +4,7 @@ Reviewed **2026-10-19**, against the Python and Swift source at `eaa9969`.
 This is a source inventory, **not the language-neutral API contract** and not a
 declaration of conformance. The policy was revised after inventorying the surface:
 the APIs need not be identical, and production Python does not need an aesthetic
-rewrite. The [draft working-record contract](../../README.md#language-neutral-api-contract)
+rewrite. The [draft working-record contract](../../docs/API_CONTRACT.md)
 formalizes the existing model. See [the Python structure analysis](../../python/docs/API_STRUCTURE.md)
 for evidence and the least-change adoption path. No runtime behavior changes here.
 
@@ -73,7 +73,7 @@ current struct semantics define the contract. Explicit snapshot values remain us
 
 ## Contract capability map
 
-Rule IDs refer to the [draft contract](../../README.md#language-neutral-api-contract),
+Rule IDs refer to the [draft contract](../../docs/API_CONTRACT.md),
 not new method signatures. This map replaces the earlier one-for-one spelling plan
 when planning the Swift refactor.
 

@@ -1,7 +1,7 @@
 # Python API structure and compatibility binding
 
 Analysis date: **2026-10-19**. The language-neutral draft contract is maintained
-in the [root README](https://github.com/open-ortho/dicom4ortho#language-neutral-api-contract), not duplicated
+in [docs/API_CONTRACT.md](https://github.com/open-ortho/dicom4ortho/blob/develop/docs/API_CONTRACT.md), not duplicated
 as a second Python specification. This pass changes no Python/Swift runtime behavior.
 
 ## Assessment: coherent model, unevenly expressed boundaries

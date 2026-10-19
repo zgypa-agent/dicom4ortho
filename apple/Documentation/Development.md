@@ -2,7 +2,7 @@
 
 ## Contract formalization (2026-10-19)
 
-The [shared draft contract](../../README.md#language-neutral-api-contract) now defines
+The [shared draft contract](../../docs/API_CONTRACT.md) now defines
 capabilities rather than identical APIs. The [Python structure analysis](../../python/docs/API_STRUCTURE.md)
 identifies the existing mutable working-record philosophy and the minimal-change
 path. Production Python bindings remain supported; current Swift design is not
